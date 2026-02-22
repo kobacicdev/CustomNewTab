@@ -1,0 +1,362 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', 'Noto Sans JP', sans-serif;
+  background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+  color: #e0e0e0;
+  min-height: 100vh;
+}
+
+.container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+/* ===== 検索エリア ===== */
+.search-area {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  margin-bottom: 32px;
+  padding-top: 20px;
+}
+
+.search-box {
+  flex: 1;
+  max-width: 480px;
+}
+
+.search-box form {
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 24px;
+  padding: 8px 16px;
+  backdrop-filter: blur(10px);
+  transition: all 0.3s;
+}
+
+.search-box form:focus-within {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 0 20px rgba(100, 100, 255, 0.15);
+}
+
+.search-icon {
+  width: 20px;
+  height: 20px;
+  margin-right: 10px;
+}
+
+.search-icon-svg {
+  width: 20px;
+  height: 20px;
+  margin-right: 10px;
+  flex-shrink: 0;
+}
+
+.search-box input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  color: #fff;
+  font-size: 15px;
+}
+
+.search-box input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* ===== メインレイアウト ===== */
+.main-content {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 20px;
+}
+
+/* ===== カード共通 ===== */
+.card {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 20px;
+  backdrop-filter: blur(10px);
+}
+
+.card h2 {
+  font-size: 16px;
+  margin-bottom: 14px;
+  color: #fff;
+}
+
+/* ===== カスタムカレンダー ===== */
+.cal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.cal-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.cal-nav {
+  background: rgba(255, 255, 255, 0.08);
+  border: none;
+  color: #aaa;
+  font-size: 20px;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.cal-nav:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.cal-day-label {
+  text-align: center;
+  font-size: 11px;
+  color: #666;
+  padding: 4px 0;
+  font-weight: 600;
+}
+
+.cal-day-label.sun { color: #ff6b6b; }
+.cal-day-label.sat { color: #5b9bd5; }
+
+.cal-cell {
+  text-align: center;
+  padding: 6px 2px;
+  border-radius: 8px;
+  position: relative;
+  cursor: default;
+  min-height: 36px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.cal-cell:not(.empty):hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.cal-cell.empty {
+  min-height: 0;
+}
+
+.cal-cell.today {
+  background: rgba(108, 99, 255, 0.3);
+}
+
+.cal-cell.today .cal-date {
+  color: #fff;
+  font-weight: 700;
+}
+
+.cal-cell.sun .cal-date { color: #ff6b6b; }
+.cal-cell.sat .cal-date { color: #5b9bd5; }
+
+.cal-date {
+  font-size: 13px;
+  color: #ccc;
+}
+
+.cal-dot {
+  width: 4px;
+  height: 4px;
+  background: #6c63ff;
+  border-radius: 50%;
+  margin-top: 2px;
+}
+
+/* ===== 予定リスト ===== */
+.event-item {
+  display: flex;
+  align-items: flex-start;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.event-time {
+  min-width: 65px;
+  font-size: 13px;
+  color: #8b9dc3;
+  font-weight: 600;
+}
+
+.event-title {
+  font-size: 14px;
+}
+
+/* ===== 予定リスト（スクロール） ===== */
+#events-container {
+  max-height: 400px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+#events-container::-webkit-scrollbar {
+  width: 4px;
+}
+
+#events-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#events-container::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+
+#events-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* ===== 予定グルーピング ===== */
+.event-group {
+  margin-bottom: 14px;
+}
+
+.event-group:last-child {
+  margin-bottom: 0;
+}
+
+.event-date-header {
+  font-size: 12px;
+  color: #8b9dc3;
+  font-weight: 600;
+  padding-bottom: 6px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* ===== お気に入り ===== */
+.fav-section {
+  margin-bottom: 16px;
+}
+
+.fav-section h3 {
+  font-size: 13px;
+  color: #8b9dc3;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.fav-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 10px;
+}
+
+.fav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-decoration: none;
+  color: #ccc;
+  padding: 10px 4px;
+  border-radius: 10px;
+  transition: all 0.2s;
+}
+
+.fav-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.fav-item img {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  margin-bottom: 6px;
+}
+
+.fav-item span {
+  font-size: 11px;
+  text-align: center;
+  word-break: break-all;
+}
+
+/* ===== ニュース ===== */
+.news-item {
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.news-item a {
+  color: #c5cae9;
+  text-decoration: none;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.news-item a:hover {
+  color: #fff;
+  text-decoration: underline;
+}
+
+.news-source {
+  font-size: 11px;
+  color: #777;
+  margin-top: 4px;
+}
+
+.loading {
+  color: #888;
+  font-size: 13px;
+}
+
+/* ===== 設定ボタン（右下） ===== */
+.settings-btn {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.2);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s;
+  backdrop-filter: blur(10px);
+  z-index: 100;
+}
+
+.settings-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.6);
+  border-color: rgba(255, 255, 255, 0.15);
+}

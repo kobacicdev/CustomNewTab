@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>設定 - Custom New Tab</title>
+  <link rel="stylesheet" href="css/options.css">
+</head>
+<body>
+  <div class="options-wrapper">
+
+    <!-- ===== ヘッダー ===== -->
+    <header class="options-header">
+      <h1>⚙ 設定</h1>
+    </header>
+
+    <!-- ===== 2ペイン本体 ===== -->
+    <div class="options-body">
+
+      <!-- 左ペイン：設定項目ナビ -->
+      <nav class="sidebar">
+        <ul class="sidebar-list">
+          <li class="sidebar-item active" data-section="favorites">
+            <span class="sidebar-icon">⭐</span>
+            <span class="sidebar-label">お気に入りサイト</span>
+          </li>
+          <li class="sidebar-item" data-section="calendar">
+            <span class="sidebar-icon">📅</span>
+            <span class="sidebar-label">カレンダー</span>
+          </li>
+          <!-- 将来の設定項目をここに追加 -->
+          <!-- <li class="sidebar-item" data-section="general">
+            <span class="sidebar-icon">🔧</span>
+            <span class="sidebar-label">一般設定</span>
+          </li> -->
+        </ul>
+      </nav>
+
+      <!-- 右ペイン：設定内容 -->
+      <main class="main-pane">
+
+        <!-- お気に入りサイト セクション -->
+        <div class="settings-section active" id="section-favorites">
+          <h2 class="section-title">⭐ お気に入りサイト</h2>
+          <p class="section-desc">New Tabに表示するお気に入りサイトを管理します。</p>
+
+          <!-- 追加フォーム -->
+          <form id="add-fav-form" class="add-form">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="fav-name">サイト名</label>
+                <input type="text" id="fav-name" placeholder="例: Notion" required>
+              </div>
+              <div class="form-group">
+                <label for="fav-url">URL</label>
+                <input type="url" id="fav-url" placeholder="例: https://notion.so" required>
+              </div>
+              <div class="form-group">
+                <label for="fav-category">カテゴリ</label>
+                <input type="text" id="fav-category" placeholder="例: WORK" list="category-list">
+                <datalist id="category-list"></datalist>
+              </div>
+            </div>
+            <button type="submit" class="btn btn-add">追加</button>
+          </form>
+
+          <!-- 一覧 -->
+          <div class="fav-list-header">
+            <h3>登録済みサイト</h3>
+            <span class="fav-count" id="fav-count">0件</span>
+          </div>
+          <div id="favorites-list" class="favorites-list">
+            <p class="empty-msg">お気に入りがまだありません</p>
+          </div>
+        </div>
+
+        <!-- カレンダー設定 セクション -->
+        <div class="settings-section" id="section-calendar">
+          <h2 class="section-title">📅 カレンダー</h2>
+          <p class="section-desc">iCal URLを登録して、New Tabにカレンダー予定を表示します。</p>
+          <div class="add-form">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="ical-url">iCal URL</label>
+                <input type="url" id="ical-url" placeholder="例: https://calendar.google.com/calendar/ical/...basic.ics">
+              </div>
+            </div>
+            <div class="ical-btn-row">
+              <button type="button" class="btn btn-add" id="save-ical-url">保存</button>
+              <button type="button" class="btn btn-edit" id="test-ical-url">テスト取得</button>
+            </div>
+            <div id="ical-status" class="ical-status"></div>
+          </div>
+          <div class="ical-help">
+            <h3>📖 iCal URL の取得方法（Google カレンダー）</h3>
+            <ol>
+              <li>Google カレンダーの<strong>設定</strong>を開く</li>
+              <li>対象カレンダーの「カレンダーの統合」セクションへ</li>
+              <li>「iCal形式の<strong>秘密のアドレス</strong>」をコピー</li>
+              <li>上のフォームに貼り付けて「保存」をクリック</li>
+            </ol>
+          </div>
+        </div>
+        <!-- 将来の設定セクションをここに追加 -->
+
+      </main>
+    </div>
+
+    <!-- ステータスメッセージ -->
+    <div id="status-msg" class="status-msg"></div>
+  </div>
+
+  <script src="js/options.js"></script>
+</body>
+</html>
