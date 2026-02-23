@@ -1,6 +1,6 @@
 // ===== カスタム月カレンダー + 予定リスト =====
 // iCal URL から VEVENT を取得してカレンダードット＋予定リストを描画
-// v1.2: ナビゲーション時に予定リストと見出しも連動更新
+// v1.2: ナビ連動 + RRULE繰り返し展開 + UTC時刻修正
 
 var currentDate = new Date();
 var eventDays = new Set();
@@ -76,7 +76,6 @@ function renderCalendar() {
     renderCalendar();
     var monthEvents = filterMonthEvents(allEvents, currentDate);
     renderICalEventsList(monthEvents);
-    updateEventsHeading(currentDate);
   });
 
   document.getElementById('cal-next').addEventListener('click', function() {
@@ -85,24 +84,11 @@ function renderCalendar() {
     renderCalendar();
     var monthEvents = filterMonthEvents(allEvents, currentDate);
     renderICalEventsList(monthEvents);
-    updateEventsHeading(currentDate);
   });
 }
 
 
-// ===== 予定リスト見出し更新（v1.2 新規） =====
-function updateEventsHeading(targetDate) {
-  var heading = document.getElementById('events-heading');
-  if (!heading) return;
-  var today = new Date();
-  if (targetDate.getFullYear() === today.getFullYear() &&
-      targetDate.getMonth() === today.getMonth()) {
-    heading.textContent = '📋 今月の予定';
-  } else {
-    var m = targetDate.getMonth() + 1;
-    heading.textContent = '📋 ' + targetDate.getFullYear() + '年' + m + '月の予定';
-  }
-}
+
 
 
 // ===== iCal データ取得 =====
@@ -139,6 +125,7 @@ async function fetchICalData(renderList) {
 
 // ===== iCal テキストパーサー =====
 function parseICalEvents(text) {
+  text = text.replace(/\r?\n[ \t]/g, '');
   var events = [];
   var blocks = text.split('BEGIN:VEVENT');
   for (var i = 1; i < blocks.length; i++) {
@@ -146,6 +133,8 @@ function parseICalEvents(text) {
     var summary = '';
     var dtstart = null;
     var isAllDay = false;
+    var rrule = null;
+    var exdates = [];
     var lines = block.split(/\r?\n/);
     for (var j = 0; j < lines.length; j++) {
       var line = lines[j];
@@ -153,27 +142,127 @@ function parseICalEvents(text) {
         summary = line.substring(8);
       } else if (line.indexOf('DTSTART') === 0) {
         dtstart = parseICalDate(line);
-        isAllDay = line.indexOf('VALUE=DATE:') !== -1;
+        isAllDay = line.indexOf('VALUE=DATE:') !== -1 ||
+                   /:\d{8}\s*$/.test(line);
+      } else if (line.indexOf('RRULE:') === 0) {
+        rrule = parseRRule(line.substring(6));
+      } else if (line.indexOf('EXDATE') === 0) {
+        var exVal = line.substring(line.indexOf(':') + 1);
+        if (exVal) {
+          exVal.split(',').forEach(function(v) {
+            var ed = parseICalDate('DT:' + v.trim());
+            if (ed) exdates.push(toDateKey(ed));
+          });
+        }
       }
     }
     if (dtstart) {
-      events.push({ summary: summary || '(無題)', start: dtstart, isAllDay: isAllDay });
+      events.push({ summary: summary || '(無題)', start: dtstart, isAllDay: isAllDay, rrule: rrule, exdates: exdates });
     }
   }
-  events.sort(function(a, b) { return a.start - b.start; });
-  return events;
+  var expanded = expandRecurringEvents(events);
+  expanded.sort(function(a, b) { return a.start - b.start; });
+  return expanded;
 }
 
 function parseICalDate(line) {
+  var isUTC = /Z\s*$/.test(line);
   var m = line.match(/(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2}))?/);
   if (!m) return null;
+  var y = parseInt(m[1]), mo = parseInt(m[2]) - 1, d = parseInt(m[3]);
   if (m[4]) {
-    return new Date(parseInt(m[1]), parseInt(m[2]) - 1, parseInt(m[3]),
-                    parseInt(m[4]), parseInt(m[5]), parseInt(m[6]));
+    var h = parseInt(m[4]), mi = parseInt(m[5]), s = parseInt(m[6]);
+    return isUTC ? new Date(Date.UTC(y, mo, d, h, mi, s)) : new Date(y, mo, d, h, mi, s);
   }
-  return new Date(parseInt(m[1]), parseInt(m[2]) - 1, parseInt(m[3]));
+  return new Date(y, mo, d);
 }
 
+// ===== 日付キー（EXDATE比較用） =====
+function toDateKey(d) {
+  return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
+}
+// ===== RRULE パーサー =====
+function parseRRule(str) {
+  var rule = {};
+  var parts = str.split(';');
+  for (var i = 0; i < parts.length; i++) {
+    var kv = parts[i].split('=');
+    if (kv[0] === 'FREQ') rule.freq = kv[1];
+    else if (kv[0] === 'COUNT') rule.count = parseInt(kv[1]);
+    else if (kv[0] === 'UNTIL') rule.until = parseICalDate('DT:' + kv[1]);
+    else if (kv[0] === 'INTERVAL') rule.interval = parseInt(kv[1]);
+    else if (kv[0] === 'BYDAY') rule.byday = kv[1].split(',');
+  }
+  if (!rule.interval) rule.interval = 1;
+  return rule;
+}
+// ===== 繰り返しイベント展開 =====
+function expandRecurringEvents(events) {
+  var result = [];
+  var now = new Date();
+  var rangeStart = new Date(now.getFullYear() - 1, 0, 1);
+  var rangeEnd = new Date(now.getFullYear() + 1, 11, 31);
+  for (var i = 0; i < events.length; i++) {
+    var ev = events[i];
+    if (!ev.rrule) {
+      result.push({ summary: ev.summary, start: ev.start, isAllDay: ev.isAllDay });
+      continue;
+    }
+    var occs = generateOccurrences(ev, rangeStart, rangeEnd);
+    for (var j = 0; j < occs.length; j++) {
+      result.push({ summary: ev.summary, start: occs[j], isAllDay: ev.isAllDay });
+    }
+  }
+  return result;
+}
+function generateOccurrences(ev, rangeStart, rangeEnd) {
+  var dates = [];
+  var rule = ev.rrule;
+  var maxOcc = rule.count || 730;
+  var until = rule.until || rangeEnd;
+  if (until > rangeEnd) until = rangeEnd;
+  var dayMap = { SU: 0, MO: 1, TU: 2, WE: 3, TH: 4, FR: 5, SA: 6 };
+  var n = 0;
+  if (rule.freq === 'WEEKLY' && rule.byday) {
+    var targetDays = rule.byday.map(function(d) {
+      var day = d.replace(/^-?\d+/, '');
+      return dayMap[day] !== undefined ? dayMap[day] : -1;
+    });
+    var weekStart = new Date(ev.start.getTime());
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+    var h = ev.start.getHours(), mi = ev.start.getMinutes(), s = ev.start.getSeconds();
+    while (n < maxOcc && weekStart <= until) {
+      for (var di = 0; di < 7 && n < maxOcc; di++) {
+        if (targetDays.indexOf(di) === -1) continue;
+        var c = new Date(weekStart.getFullYear(), weekStart.getMonth(),
+                         weekStart.getDate() + di, h, mi, s);
+        if (c < ev.start) continue;
+        if (c > until) { n = maxOcc; break; }
+        n++;
+        if (c >= rangeStart && ev.exdates.indexOf(toDateKey(c)) === -1) {
+          dates.push(c);
+        }
+      }
+      weekStart.setDate(weekStart.getDate() + 7 * rule.interval);
+    }
+  } else {
+    var d = new Date(ev.start.getTime());
+    while (n < maxOcc && d <= until) {
+      if (d >= rangeStart && ev.exdates.indexOf(toDateKey(d)) === -1) {
+        dates.push(new Date(d.getTime()));
+      }
+      n++;
+      switch (rule.freq) {
+        case 'DAILY': d.setDate(d.getDate() + rule.interval); break;
+        case 'WEEKLY': d.setDate(d.getDate() + 7 * rule.interval); break;
+        case 'MONTHLY': d.setMonth(d.getMonth() + rule.interval); break;
+        case 'YEARLY': d.setFullYear(d.getFullYear() + rule.interval); break;
+        default: n = maxOcc;
+      }
+    }
+  }
+  return dates;
+}
 // ===== 月イベントフィルタ =====
 function filterMonthEvents(events, targetDate) {
   var year = targetDate.getFullYear();
