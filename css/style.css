@@ -92,13 +92,8 @@ body {
 
 /* v1.2: .card h2 を削除（v1.1: font-size:16px; margin-bottom:14px; color:#fff;） */
 
-/* ===== 予定リスト見出し（v1.2 新規） ===== */
-.events-heading {
-  font-size: 14px;
-  color: #8b9dc3;
-  font-weight: 600;
-  margin-bottom: 10px;
-}
+
+
 
 /* ===== カスタムカレンダー ===== */
 .cal-header {
