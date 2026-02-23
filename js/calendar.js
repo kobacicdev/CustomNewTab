@@ -1,5 +1,6 @@
-// ===== カスタム月カレンダー + 今月の予定リスト =====
+// ===== カスタム月カレンダー + 予定リスト =====
 // iCal URL から VEVENT を取得してカレンダードット＋予定リストを描画
+// v1.2: ナビゲーション時に予定リストと見出しも連動更新
 
 var currentDate = new Date();
 var eventDays = new Set();
@@ -68,18 +69,39 @@ function renderCalendar() {
   html += '</div>';
   container.innerHTML = html;
 
-  // 前月・次月ナビゲーション（ドットのみ更新、予定リストは非連動）
+  // 前月・次月ナビゲーション（v1.2: ドット＋予定リスト＋見出し連動）
   document.getElementById('cal-prev').addEventListener('click', function() {
     currentDate.setMonth(currentDate.getMonth() - 1);
     updateCalendarDots(currentDate);
     renderCalendar();
+    var monthEvents = filterMonthEvents(allEvents, currentDate);
+    renderICalEventsList(monthEvents);
+    updateEventsHeading(currentDate);
   });
 
   document.getElementById('cal-next').addEventListener('click', function() {
     currentDate.setMonth(currentDate.getMonth() + 1);
     updateCalendarDots(currentDate);
     renderCalendar();
+    var monthEvents = filterMonthEvents(allEvents, currentDate);
+    renderICalEventsList(monthEvents);
+    updateEventsHeading(currentDate);
   });
+}
+
+
+// ===== 予定リスト見出し更新（v1.2 新規） =====
+function updateEventsHeading(targetDate) {
+  var heading = document.getElementById('events-heading');
+  if (!heading) return;
+  var today = new Date();
+  if (targetDate.getFullYear() === today.getFullYear() &&
+      targetDate.getMonth() === today.getMonth()) {
+    heading.textContent = '📋 今月の予定';
+  } else {
+    var m = targetDate.getMonth() + 1;
+    heading.textContent = '📋 ' + targetDate.getFullYear() + '年' + m + '月の予定';
+  }
 }
 
 
@@ -114,6 +136,7 @@ async function fetchICalData(renderList) {
     }
   }
 }
+
 // ===== iCal テキストパーサー =====
 function parseICalEvents(text) {
   var events = [];
@@ -140,6 +163,7 @@ function parseICalEvents(text) {
   events.sort(function(a, b) { return a.start - b.start; });
   return events;
 }
+
 function parseICalDate(line) {
   var m = line.match(/(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2}))?/);
   if (!m) return null;
@@ -149,6 +173,7 @@ function parseICalDate(line) {
   }
   return new Date(parseInt(m[1]), parseInt(m[2]) - 1, parseInt(m[3]));
 }
+
 // ===== 月イベントフィルタ =====
 function filterMonthEvents(events, targetDate) {
   var year = targetDate.getFullYear();
@@ -157,6 +182,7 @@ function filterMonthEvents(events, targetDate) {
     return ev.start.getFullYear() === year && ev.start.getMonth() === month;
   });
 }
+
 // ===== カレンダードット更新 =====
 function updateCalendarDots(targetDate) {
   var monthEvents = filterMonthEvents(allEvents, targetDate);
@@ -165,11 +191,12 @@ function updateCalendarDots(targetDate) {
     eventDays.add(ev.start.getDate());
   });
 }
+
 // ===== iCal 予定リスト描画（日付グルーピング） =====
 function renderICalEventsList(items) {
   var container = document.getElementById('events-container');
   if (!items || items.length === 0) {
-    container.innerHTML = '<p style="color:#888;">今月の予定はありません 🎉</p>';
+    container.innerHTML = '<p style="color:#888;">予定はありません 🎉</p>';
     return;
   }
   var groups = {};
