@@ -1,410 +1,383 @@
-// ===== お気に入り設定ページ（2ペイン構成） =====
-// v1.2: インライン編集 + ドロップダウンセクション変更 + カスタム削除モーダル
-
-var favorites = [];
-var pendingDeleteAction = null;
-
-// ===== 初期化 =====
 document.addEventListener('DOMContentLoaded', function() {
-  loadFavoritesData();
-  loadCalendarSettings();
-  document.getElementById('add-fav-form').addEventListener('submit', handleAddFavorite);
-
-  // お気に入りリストのイベント委譲
-  document.getElementById('favorites-list').addEventListener('click', function(e) {
-    var btn = e.target.closest('button');
-    if (!btn) return;
-
-    // カテゴリ（セクション）操作
-    var cat = btn.getAttribute('data-category');
-    if (cat) {
-      if (btn.classList.contains('btn-cat-edit')) {
-        startInlineCategoryEdit(cat);
-      } else if (btn.classList.contains('btn-cat-delete')) {
-        var count = favorites.filter(function(f) { return f.category === cat; }).length;
-        showDeleteModal(
-          '「' + cat + '」セクション（' + count + '件）を削除しますか？\nセクション内の全サイトも削除されます。',
-          function() { deleteCategory(cat); }
-        );
-      }
-      return;
-    }
-
-    // 個別サイト操作
-    var id = btn.getAttribute('data-id');
-    if (!id) return;
-
-    if (btn.classList.contains('btn-edit')) {
-      startInlineEdit(id);
-    } else if (btn.classList.contains('btn-delete')) {
-      var item = favorites.find(function(f) { return f.id === id; });
-      if (item) {
-        showDeleteModal(
-          '「' + item.name + '」を削除しますか？',
-          function() { deleteFavorite(id); }
-        );
-      }
-    } else if (btn.classList.contains('btn-inline-save')) {
-      saveInlineEdit(id);
-    } else if (btn.classList.contains('btn-inline-cancel')) {
-      renderFavoritesList();
-    }
-  });
-
-  // モーダルイベント
-  document.getElementById('modal-cancel').addEventListener('click', hideDeleteModal);
-  document.getElementById('modal-confirm').addEventListener('click', function() {
-    if (pendingDeleteAction) {
-      pendingDeleteAction();
-      pendingDeleteAction = null;
-    }
-    hideDeleteModal();
-  });
-  document.getElementById('modal-overlay').addEventListener('click', function(e) {
-    if (e.target === this) hideDeleteModal();
-  });
-
-  // サイドバーナビゲーション
   var sidebarItems = document.querySelectorAll('.sidebar-item');
+  var sections = document.querySelectorAll('.settings-section');
   sidebarItems.forEach(function(item) {
     item.addEventListener('click', function() {
-      var sectionId = this.getAttribute('data-section');
-      sidebarItems.forEach(function(si) { si.classList.remove('active'); });
+      sidebarItems.forEach(function(i){i.classList.remove('active');});
+      sections.forEach(function(s){s.classList.remove('active');});
       this.classList.add('active');
-      document.querySelectorAll('.settings-section').forEach(function(sec) {
-        sec.classList.remove('active');
-      });
-      var target = document.getElementById('section-' + sectionId);
-      if (target) target.classList.add('active');
+      document.getElementById('section-'+this.getAttribute('data-section')).classList.add('active');
     });
+  });
+  loadFavorites();
+  loadIcalUrl();
+  loadNewsSource();
+  loadThemeSettings();
+  loadSearchSettings();
+  document.getElementById('add-fav-form').addEventListener('submit', handleAddFavorite);
+  document.getElementById('save-ical-url').addEventListener('click', saveIcalUrl);
+  document.getElementById('test-ical-url').addEventListener('click', testIcalUrl);
+  document.getElementById('save-news-source').addEventListener('click', saveNewsSource);
+  document.getElementById('news-source').addEventListener('change', function() {
+    document.getElementById('custom-rss-group').style.display = this.value==='custom'?'':'none';
+  });
+  document.getElementById('add-engine-btn').addEventListener('click', handleAddEngine);
+  document.addEventListener('keydown', function(e) {
+    if(e.key==='Escape') { var o=document.getElementById('modal-overlay'); if(o.classList.contains('show'))o.classList.remove('show'); }
   });
 });
-
-// ===== データ読み込み =====
-function loadFavoritesData() {
-  chrome.storage.sync.get('favorites', function(data) {
-    favorites = data.favorites || [];
-    renderFavoritesList();
-    updateCategoryDatalist();
-  });
+// ===== ユーティリティ =====
+function escapeHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function showStatus(msg){var el=document.getElementById('status-msg');el.textContent=msg;el.classList.add('show');setTimeout(function(){el.classList.remove('show');},2000);}
+function showModal(message,onConfirm){
+  var overlay=document.getElementById('modal-overlay');
+  document.getElementById('modal-message').textContent=message;
+  overlay.classList.add('show');
+  var conf=document.getElementById('modal-confirm'),canc=document.getElementById('modal-cancel');
+  var cleanup=function(){overlay.classList.remove('show');conf.replaceWith(conf.cloneNode(true));canc.replaceWith(canc.cloneNode(true));};
+  document.getElementById('modal-confirm').addEventListener('click',function(){cleanup();onConfirm();});
+  document.getElementById('modal-cancel').addEventListener('click',cleanup);
 }
-
-// ===== データ保存 =====
-function saveFavoritesData(callback) {
-  chrome.storage.sync.set({ favorites: favorites }, function() {
-    if (callback) callback();
-  });
+// ===== お気に入り =====
+var favorites=[];
+function loadFavorites(){chrome.storage.sync.get('favorites',function(data){favorites=data.favorites||[];renderFavoritesList();updateCategorySelect();});}
+function saveFavorites(cb){chrome.storage.sync.set({favorites:favorites},function(){renderFavoritesList();updateCategorySelect();if(cb)cb();});}
+function updateCategorySelect(){
+  var sel=document.getElementById('fav-category');
+  var cats=[];
+  favorites.forEach(function(f){if(f.category&&cats.indexOf(f.category)===-1)cats.push(f.category);});
+  if(cats.length===0)cats.push('メイン');
+  var html='';
+  cats.forEach(function(c){html+='<option value="'+escapeHtml(c)+'">'+escapeHtml(c)+'</option>';});
+  html+='<option value="__new__">＋ 新規セクション</option>';
+  sel.innerHTML=html;
+  sel.onchange=function(){
+    var ni=document.getElementById('fav-category-new'),cb=document.getElementById('cancel-new-category');
+    if(this.value==='__new__'){ni.style.display='';cb.style.display='';ni.focus();}else{ni.style.display='none';cb.style.display='none';ni.value='';}
+  };
+  document.getElementById('cancel-new-category').onclick=function(){sel.value=sel.options[0].value;document.getElementById('fav-category-new').style.display='none';this.style.display='none';};
 }
-
-// ===== お気に入り追加 =====
-function handleAddFavorite(e) {
+function handleAddFavorite(e){
   e.preventDefault();
-  var name = document.getElementById('fav-name').value.trim();
-  var url = document.getElementById('fav-url').value.trim();
-  var category = document.getElementById('fav-category').value.trim() || '未分類';
-  if (!name || !url) return;
-  if (!/^https?:\/\//.test(url)) url = 'https://' + url;
-
-  favorites.push({
-    id: Date.now().toString(),
-    name: name,
-    url: url,
-    category: category
-  });
-
-  saveFavoritesData(function() {
-    renderFavoritesList();
-    updateCategoryDatalist();
-    showStatus('「' + name + '」を追加しました');
-    document.getElementById('fav-name').value = '';
-    document.getElementById('fav-url').value = '';
-    document.getElementById('fav-category').value = '';
-    document.getElementById('fav-name').focus();
+  var name=document.getElementById('fav-name').value.trim();
+  var url=document.getElementById('fav-url').value.trim();
+  var sel=document.getElementById('fav-category');
+  var category;
+  if(sel.value==='__new__'){
+    category=document.getElementById('fav-category-new').value.trim();
+    if(!category){showStatus('セクション名を入力してください');return;}
+    var ex=[];favorites.forEach(function(f){if(f.category&&ex.indexOf(f.category)===-1)ex.push(f.category);});
+    if(ex.indexOf(category)!==-1){showStatus('同名のセクションが既に存在します');return;}
+  }else{category=sel.value;}
+  if(!name||!url)return;
+  if(!/^https?:\/\//i.test(url))url='https://'+url;
+  favorites.push({id:Date.now().toString(),name:name,url:url,category:category||'メイン'});
+  saveFavorites(function(){
+    showStatus('「'+name+'」を追加しました');
+    document.getElementById('fav-name').value='';document.getElementById('fav-url').value='';
+    document.getElementById('fav-category-new').value='';document.getElementById('fav-category-new').style.display='none';
+    document.getElementById('cancel-new-category').style.display='none';
   });
 }
-
-// ===== お気に入り削除（モーダル経由で呼ばれる） =====
-function deleteFavorite(id) {
-  var item = favorites.find(function(f) { return f.id === id; });
-  favorites = favorites.filter(function(f) { return f.id !== id; });
-  saveFavoritesData(function() {
-    renderFavoritesList();
-    updateCategoryDatalist();
-    if (item) showStatus('「' + item.name + '」を削除しました');
+function renderFavoritesList(){
+  var container=document.getElementById('favorites-list');
+  document.getElementById('fav-count').textContent=favorites.length+'件';
+  if(favorites.length===0){container.innerHTML='<p class="empty-msg">お気に入りがまだありません</p>';return;}
+  var catOrder=[];favorites.forEach(function(f){var c=f.category||'メイン';if(catOrder.indexOf(c)===-1)catOrder.push(c);});
+  var groups={};catOrder.forEach(function(c){groups[c]=[];});
+  favorites.forEach(function(f){var c=f.category||'メイン';if(!groups[c])groups[c]=[];groups[c].push(f);});
+  var html='';
+  catOrder.forEach(function(cat){
+    html+='<div class="fav-category-group" draggable="true" data-category="'+escapeHtml(cat)+'">';
+    html+='<div class="fav-category-title"><span class="fav-category-drag">⠿</span>';
+    html+='<span class="fav-category-name">'+escapeHtml(cat)+'</span>';
+    html+='<div class="fav-category-actions">';
+    html+='<button class="btn btn-edit" onclick="editSectionName(\''+escapeHtml(cat).replace(/'/g,"\\\'")+'\')">📝</button>';
+    html+='<button class="btn btn-delete" onclick="deleteSection(\''+escapeHtml(cat).replace(/'/g,"\\\'")+'\')">🗑️</button>';
+    html+='</div></div>';
+    groups[cat].forEach(function(fav){
+      var domain='';try{domain=new URL(fav.url).hostname;}catch(e){}
+      html+='<div class="fav-row" draggable="true" data-fav-id="'+fav.id+'" data-category="'+escapeHtml(cat)+'">';
+      html+='<span class="fav-row-drag">⠿</span>';
+      html+='<img class="fav-row-icon" src="https://www.google.com/s2/favicons?sz=64&domain='+encodeURIComponent(domain)+'" alt="" onerror="this.style.display=\'none\'">';
+      html+='<span class="fav-row-name" title="'+escapeHtml(fav.name)+'">'+escapeHtml(fav.name)+'</span>';
+      html+='<span class="fav-row-url" title="'+escapeHtml(fav.url)+'">'+escapeHtml(domain)+'</span>';
+      html+='<div class="fav-row-actions">';
+      html+='<button class="btn btn-edit" onclick="editSiteName(\''+fav.id+'\')">📝</button>';
+      html+='<button class="btn btn-edit" onclick="editSiteUrl(\''+fav.id+'\')">🔗</button>';
+      html+='<button class="btn btn-edit" onclick="editSiteCategory(\''+fav.id+'\')">📂</button>';
+      html+='<button class="btn btn-delete" onclick="deleteFavorite(\''+fav.id+'\')">🗑️</button>';
+      html+='</div></div>';
+    });
+    html+='</div>';
   });
+  container.innerHTML=html;
+  setupFavDnD(container);
 }
-
-// ===== インライン編集開始（サイト） =====
-function startInlineEdit(id) {
-  var item = favorites.find(function(f) { return f.id === id; });
-  if (!item) return;
-  var row = document.querySelector('.fav-row[data-row-id="' + id + '"]');
-  if (!row) return;
-
-  var categories = getCategories();
-  var catOptions = categories.map(function(c) {
-    var selected = c === item.category ? ' selected' : '';
-    return '<option value="' + escapeHtml(c) + '"' + selected + '>' + escapeHtml(c) + '</option>';
-  }).join('');
-
-  row.innerHTML =
-    '<div class="inline-edit-form">' +
-    '  <div class="inline-edit-row">' +
-    '    <label>サイト名</label>' +
-    '    <input type="text" class="inline-input" id="inline-name-' + id + '" value="' + escapeHtml(item.name) + '">' +
-    '  </div>' +
-    '  <div class="inline-edit-row">' +
-    '    <label>URL</label>' +
-    '    <input type="url" class="inline-input" id="inline-url-' + id + '" value="' + escapeHtml(item.url) + '">' +
-    '  </div>' +
-    '  <div class="inline-edit-row">' +
-    '    <label>セクション</label>' +
-    '    <select class="inline-select" id="inline-cat-' + id + '">' + catOptions + '</select>' +
-    '  </div>' +
-    '  <div class="inline-edit-actions">' +
-    '    <button class="btn btn-inline-save" data-id="' + id + '">保存</button>' +
-    '    <button class="btn btn-inline-cancel" data-id="' + id + '">キャンセル</button>' +
-    '  </div>' +
-    '</div>';
-
-  row.classList.add('editing');
-  document.getElementById('inline-name-' + id).focus();
+// ===== インライン編集 =====
+var isEditing=false;
+function editSiteName(id){
+  var fav=favorites.find(function(f){return f.id===id;});if(!fav||isEditing)return;
+  var row=document.querySelector('.fav-row[data-fav-id="'+id+'"]'),nameSpan=row.querySelector('.fav-row-name');
+  isEditing=true;row.setAttribute('draggable','false');
+  var input=document.createElement('input');input.className='inline-edit-input';input.value=fav.name;
+  nameSpan.replaceWith(input);input.focus();input.select();
+  var save=function(){var v=input.value.trim();if(v&&v!==fav.name){fav.name=v;saveFavorites(function(){showStatus('名前を変更しました');});}else{isEditing=false;row.setAttribute('draggable','true');renderFavoritesList();}isEditing=false;};
+  input.addEventListener('blur',save);
+  input.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();this.blur();}if(e.key==='Escape'){this.value=fav.name;this.blur();}});
 }
-
-// ===== インライン編集保存 =====
-function saveInlineEdit(id) {
-  var item = favorites.find(function(f) { return f.id === id; });
-  if (!item) return;
-
-  var nameEl = document.getElementById('inline-name-' + id);
-  var urlEl = document.getElementById('inline-url-' + id);
-  var catEl = document.getElementById('inline-cat-' + id);
-  if (!nameEl || !urlEl || !catEl) return;
-
-  var newName = nameEl.value.trim();
-  var newUrl = urlEl.value.trim();
-  var newCat = catEl.value;
-
-  if (newName) item.name = newName;
-  if (newUrl) item.url = newUrl;
-  if (newCat) item.category = newCat;
-
-  saveFavoritesData(function() {
-    renderFavoritesList();
-    updateCategoryDatalist();
-    showStatus('「' + item.name + '」を更新しました');
+function editSiteUrl(id){
+  var fav=favorites.find(function(f){return f.id===id;});if(!fav||isEditing)return;
+  var row=document.querySelector('.fav-row[data-fav-id="'+id+'"]'),urlSpan=row.querySelector('.fav-row-url');
+  isEditing=true;row.setAttribute('draggable','false');
+  var input=document.createElement('input');input.className='inline-edit-input';input.value=fav.url;
+  urlSpan.replaceWith(input);input.focus();input.select();
+  var save=function(){var v=input.value.trim();if(v&&v!==fav.url){if(!/^https?:\/\//i.test(v))v='https://'+v;fav.url=v;saveFavorites(function(){showStatus('URLを変更しました');});}else{isEditing=false;row.setAttribute('draggable','true');renderFavoritesList();}isEditing=false;};
+  input.addEventListener('blur',save);
+  input.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();this.blur();}if(e.key==='Escape'){this.value=fav.url;this.blur();}});
+}
+function editSiteCategory(id){
+  var fav=favorites.find(function(f){return f.id===id;});if(!fav||isEditing)return;
+  var row=document.querySelector('.fav-row[data-fav-id="'+id+'"]'),urlSpan=row.querySelector('.fav-row-url');
+  isEditing=true;row.setAttribute('draggable','false');
+  var cats=[];favorites.forEach(function(f){if(f.category&&cats.indexOf(f.category)===-1)cats.push(f.category);});
+  var sel=document.createElement('select');sel.className='inline-edit-input';
+  cats.forEach(function(c){var o=document.createElement('option');o.value=c;o.textContent=c;if(c===fav.category)o.selected=true;sel.appendChild(o);});
+  urlSpan.replaceWith(sel);sel.focus();
+  var save=function(){var v=sel.value;if(v!==fav.category){fav.category=v;saveFavorites(function(){showStatus('セクションを変更しました');});}else{isEditing=false;row.setAttribute('draggable','true');renderFavoritesList();}isEditing=false;};
+  sel.addEventListener('change',save);
+  sel.addEventListener('blur',function(){setTimeout(function(){if(isEditing){isEditing=false;renderFavoritesList();}},100);});
+}
+function editSectionName(oldName){
+  if(isEditing)return;
+  var group=document.querySelector('.fav-category-group[data-category="'+oldName+'"]');if(!group)return;
+  var nameSpan=group.querySelector('.fav-category-name');
+  isEditing=true;group.setAttribute('draggable','false');
+  var input=document.createElement('input');input.className='inline-edit-input';input.value=oldName;
+  nameSpan.replaceWith(input);input.focus();input.select();
+  var save=function(){
+    var v=input.value.trim();
+    if(v&&v!==oldName){
+      var exists=false;favorites.forEach(function(f){if(f.category===v)exists=true;});
+      if(exists&&v!==oldName){showStatus('同名のセクションが既に存在します');isEditing=false;renderFavoritesList();return;}
+      favorites.forEach(function(f){if(f.category===oldName)f.category=v;});
+      saveFavorites(function(){showStatus('セクション名を変更しました');});
+    }else{isEditing=false;group.setAttribute('draggable','true');renderFavoritesList();}
+    isEditing=false;
+  };
+  input.addEventListener('blur',save);
+  input.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();this.blur();}if(e.key==='Escape'){this.value=oldName;this.blur();}});
+}
+function deleteFavorite(id){
+  var fav=favorites.find(function(f){return f.id===id;});if(!fav)return;
+  showModal('「'+fav.name+'」を削除しますか？',function(){favorites=favorites.filter(function(f){return f.id!==id;});saveFavorites(function(){showStatus('削除しました');});});
+}
+function deleteSection(cat){
+  var count=favorites.filter(function(f){return f.category===cat;}).length;
+  showModal('セクション「'+cat+'」と含まれる'+count+'件のサイトを全て削除しますか？',function(){favorites=favorites.filter(function(f){return f.category!==cat;});saveFavorites(function(){showStatus('セクションを削除しました');});});
+}
+// ===== お気に入りD&D =====
+function setupFavDnD(container){
+  var draggedEl=null,dragType=null;
+  container.querySelectorAll('.fav-category-group').forEach(function(group){
+    group.addEventListener('dragstart',function(e){
+      if(isEditing){e.preventDefault();return;}if(e.target.classList.contains('fav-row'))return;
+      draggedEl=this;dragType='section';this.classList.add('dragging');e.dataTransfer.effectAllowed='move';e.stopPropagation();
+    });
   });
-}
-
-// ===== セクション名インライン編集 =====
-function startInlineCategoryEdit(oldName) {
-  var titleEl = document.querySelector('.fav-category-title[data-cat="' + oldName + '"]');
-  if (!titleEl) return;
-  var spanEl = titleEl.querySelector('span');
-  var actionsEl = titleEl.querySelector('.fav-cat-actions');
-
-  spanEl.style.display = 'none';
-  if (actionsEl) actionsEl.style.display = 'none';
-
-  var input = document.createElement('input');
-  input.type = 'text';
-  input.value = oldName;
-  input.className = 'inline-cat-input';
-
-  var saveBtn = document.createElement('button');
-  saveBtn.textContent = '✓';
-  saveBtn.className = 'btn btn-inline-cat-save';
-
-  var cancelBtn = document.createElement('button');
-  cancelBtn.textContent = '✕';
-  cancelBtn.className = 'btn btn-inline-cat-cancel';
-
-  titleEl.insertBefore(input, spanEl);
-  titleEl.appendChild(saveBtn);
-  titleEl.appendChild(cancelBtn);
-  input.focus();
-  input.select();
-
-  function save() {
-    var newName = input.value.trim();
-    if (newName && newName !== oldName) {
-      favorites.forEach(function(f) {
-        if (f.category === oldName) f.category = newName;
-      });
-      saveFavoritesData(function() {
-        renderFavoritesList();
-        updateCategoryDatalist();
-        showStatus('「' + oldName + '」→「' + newName + '」に変更しました');
-      });
-    } else {
-      renderFavoritesList();
-    }
-  }
-  function cancel() { renderFavoritesList(); }
-
-  saveBtn.addEventListener('click', save);
-  cancelBtn.addEventListener('click', cancel);
-  input.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter') save();
-    if (e.key === 'Escape') cancel();
+  container.querySelectorAll('.fav-row').forEach(function(row){
+    row.addEventListener('dragstart',function(e){
+      if(isEditing){e.preventDefault();return;}
+      draggedEl=this;dragType='site';this.classList.add('dragging');e.dataTransfer.effectAllowed='move';e.stopPropagation();
+    });
   });
-}
-
-// ===== セクション削除（モーダル経由で呼ばれる） =====
-function deleteCategory(catName) {
-  favorites = favorites.filter(function(f) { return f.category !== catName; });
-  saveFavoritesData(function() {
-    renderFavoritesList();
-    updateCategoryDatalist();
-    showStatus('「' + catName + '」を削除しました');
+  container.addEventListener('dragover',function(e){
+    e.preventDefault();
+    container.querySelectorAll('.drag-over-above,.drag-over-below').forEach(function(el){el.classList.remove('drag-over-above','drag-over-below');});
+    var target=e.target.closest(dragType==='section'?'.fav-category-group':'.fav-row,.fav-category-group');
+    if(!target||target===draggedEl)return;
+    var rect=target.getBoundingClientRect();target.classList.add(e.clientY<rect.top+rect.height/2?'drag-over-above':'drag-over-below');
   });
-}
-
-// ===== カスタム削除モーダル =====
-function showDeleteModal(message, onConfirm) {
-  pendingDeleteAction = onConfirm;
-  document.getElementById('modal-message').textContent = message;
-  document.getElementById('modal-overlay').classList.add('show');
-}
-
-function hideDeleteModal() {
-  pendingDeleteAction = null;
-  document.getElementById('modal-overlay').classList.remove('show');
-}
-
-// ===== カテゴリ一覧取得 =====
-function getCategories() {
-  var cats = [];
-  favorites.forEach(function(f) {
-    if (f.category && cats.indexOf(f.category) === -1) {
-      cats.push(f.category);
+  container.addEventListener('drop',function(e){
+    e.preventDefault();
+    container.querySelectorAll('.drag-over-above,.drag-over-below').forEach(function(el){el.classList.remove('drag-over-above','drag-over-below');});
+    if(!draggedEl)return;
+    if(dragType==='section'){
+      var target=e.target.closest('.fav-category-group');if(!target||target===draggedEl)return;
+      reorderSections(draggedEl.getAttribute('data-category'),target.getAttribute('data-category'),e.clientY<target.getBoundingClientRect().top+target.getBoundingClientRect().height/2);
+    }else{
+      var targetRow=e.target.closest('.fav-row'),targetGroup=e.target.closest('.fav-category-group');if(!targetGroup)return;
+      var favId=draggedEl.getAttribute('data-fav-id'),targetCat=targetGroup.getAttribute('data-category');
+      if(targetRow&&targetRow!==draggedEl){moveSiteToPosition(favId,targetCat,targetRow.getAttribute('data-fav-id'),e.clientY<targetRow.getBoundingClientRect().top+targetRow.getBoundingClientRect().height/2);}
+      else{moveSiteToSection(favId,targetCat);}
     }
   });
-  return cats;
+  container.addEventListener('dragend',function(){if(draggedEl)draggedEl.classList.remove('dragging');draggedEl=null;dragType=null;container.querySelectorAll('.drag-over-above,.drag-over-below').forEach(function(el){el.classList.remove('drag-over-above','drag-over-below');});});
 }
-
-// ===== 一覧レンダリング =====
-function renderFavoritesList() {
-  var container = document.getElementById('favorites-list');
-  var countEl = document.getElementById('fav-count');
-  if (countEl) countEl.textContent = favorites.length + '件';
-
-  if (favorites.length === 0) {
-    container.innerHTML = '<p class="empty-msg">お気に入りがまだありません</p>';
-    return;
-  }
-
-  var groups = {};
-  favorites.forEach(function(fav) {
-    var cat = fav.category || '未分類';
-    if (!groups[cat]) groups[cat] = [];
-    groups[cat].push(fav);
+function reorderSections(fromCat,toCat,above){
+  var catOrder=[];favorites.forEach(function(f){var c=f.category||'メイン';if(catOrder.indexOf(c)===-1)catOrder.push(c);});
+  var fromIdx=catOrder.indexOf(fromCat);if(fromIdx===-1)return;
+  catOrder.splice(fromIdx,1);var toIdx=catOrder.indexOf(toCat);if(!above)toIdx++;catOrder.splice(toIdx,0,fromCat);
+  var reordered=[];catOrder.forEach(function(cat){favorites.forEach(function(f){if((f.category||'メイン')===cat)reordered.push(f);});});
+  favorites=reordered;saveFavorites(function(){showStatus('セクション順を変更しました');});
+}
+function moveSiteToPosition(favId,targetCat,targetFavId,above){
+  var fav=favorites.find(function(f){return f.id===favId;});if(!fav)return;
+  fav.category=targetCat;favorites=favorites.filter(function(f){return f.id!==favId;});
+  var idx=favorites.findIndex(function(f){return f.id===targetFavId;});if(!above)idx++;favorites.splice(idx,0,fav);
+  saveFavorites(function(){showStatus('サイトを移動しました');});
+}
+function moveSiteToSection(favId,targetCat){
+  var fav=favorites.find(function(f){return f.id===favId;});if(!fav)return;
+  fav.category=targetCat;saveFavorites(function(){showStatus('セクションを移動しました');});
+}
+// ===== iCal =====
+function loadIcalUrl(){chrome.storage.sync.get('icalUrl',function(data){if(data.icalUrl)document.getElementById('ical-url').value=data.icalUrl;});}
+function saveIcalUrl(){var url=document.getElementById('ical-url').value.trim();chrome.storage.sync.set({icalUrl:url},function(){showStatus('iCal URLを保存しました');});}
+function testIcalUrl(){
+  var url=document.getElementById('ical-url').value.trim(),status=document.getElementById('ical-status');
+  if(!url){status.textContent='URLを入力してください';return;}
+  status.textContent='テスト中...';
+  fetch(url).then(function(r){return r.text();}).then(function(text){
+    var count=(text.match(/BEGIN:VEVENT/g)||[]).length;
+    status.textContent='✅ 取得成功！'+count+'件のイベントが見つかりました';
+  }).catch(function(err){status.textContent='❌ 取得失敗：'+err.message;});
+}
+// ===== ニュース =====
+function loadNewsSource(){
+  chrome.storage.sync.get(['newsSource','customRssUrl'],function(data){
+    if(data.newsSource)document.getElementById('news-source').value=data.newsSource;
+    if(data.newsSource==='custom'){document.getElementById('custom-rss-group').style.display='';if(data.customRssUrl)document.getElementById('custom-rss-url').value=data.customRssUrl;}
   });
-
-  var html = '';
-  Object.keys(groups).forEach(function(category) {
-    html += '<div class="fav-category-group">';
-    html += '<div class="fav-category-title" data-cat="' + escapeHtml(category) + '">';
-    html += '  <span>' + escapeHtml(category) + '</span>';
-    html += '  <div class="fav-cat-actions">';
-    html += '    <button class="btn btn-cat-edit" data-category="' + escapeHtml(category) + '">✏️</button>';
-    html += '    <button class="btn btn-cat-delete" data-category="' + escapeHtml(category) + '">🗑️</button>';
-    html += '  </div>';
-    html += '</div>';
-
-    groups[category].forEach(function(fav) {
-      var domain = '';
-      try { domain = new URL(fav.url).hostname; } catch(e) { domain = fav.url; }
-      var faviconUrl = 'https://www.google.com/s2/favicons?domain=' + domain + '&sz=48';
-
-      html += '<div class="fav-row" data-row-id="' + fav.id + '">';
-      html += '  <img class="fav-row-icon" src="' + faviconUrl + '" alt="">';
-      html += '  <div class="fav-row-info">';
-      html += '    <div class="fav-row-name">' + escapeHtml(fav.name) + '</div>';
-      html += '    <div class="fav-row-url">' + escapeHtml(fav.url) + '</div>';
-      html += '  </div>';
-      html += '  <div class="fav-row-actions">';
-      html += '    <button class="btn btn-edit" data-id="' + fav.id + '">編集</button>';
-      html += '    <button class="btn btn-delete" data-id="' + fav.id + '">削除</button>';
-      html += '  </div>';
-      html += '</div>';
+}
+function saveNewsSource(){
+  var source=document.getElementById('news-source').value,data={newsSource:source};
+  if(source==='custom')data.customRssUrl=document.getElementById('custom-rss-url').value.trim();
+  chrome.storage.sync.set(data,function(){showStatus('ニュースソースを保存しました');});
+}
+// ===== テーマ設定 =====
+var THEME_LIST=[
+  {id:'dark-purple',name:'ダーク',colors:['#0f0c29','#302b63','#24243e']},
+  {id:'midnight',name:'ミッドナイト',colors:['#020b1a','#0a1e3d','#071533']},
+  {id:'forest',name:'フォレスト',colors:['#060f08','#142a18','#0e2012']},
+  {id:'sunset',name:'サンセット',colors:['#1a0e05','#33201a','#281208']},
+  {id:'light',name:'ライト',colors:['#eef0f5','#e0e2ea','#f0f2f8']},
+  {id:'slate',name:'スレート',colors:['#18181c','#252530','#1e1e28']}
+];
+function loadThemeSettings(){chrome.storage.sync.get('theme',function(data){renderThemeGrid(data.theme||'dark-purple');});}
+function renderThemeGrid(current){
+  var container=document.getElementById('theme-grid'),html='';
+  THEME_LIST.forEach(function(t){
+    var active=t.id===current?' active':'';
+    html+='<div class="theme-card'+active+'" data-theme-id="'+t.id+'">';
+    html+='<div class="theme-preview" style="background:linear-gradient(135deg,'+t.colors.join(',')+')"><div class="theme-preview-bar"></div><div class="theme-preview-cards"><div class="tp-card"></div><div class="tp-card"></div><div class="tp-card"></div></div></div>';
+    html+='<span class="theme-card-name">'+t.name+'</span></div>';
+  });
+  container.innerHTML=html;
+  container.querySelectorAll('.theme-card').forEach(function(card){
+    card.addEventListener('click',function(){
+      var id=this.getAttribute('data-theme-id');
+      document.documentElement.setAttribute('data-theme',id);
+      localStorage.setItem('ntTheme',id);
+      chrome.storage.sync.set({theme:id},function(){showStatus('テーマを変更しました');});
+      container.querySelectorAll('.theme-card').forEach(function(c){c.classList.remove('active');});
+      this.classList.add('active');
     });
-
-    html += '</div>';
-  });
-
-  container.innerHTML = html;
-}
-
-// ===== カテゴリ候補の更新 =====
-function updateCategoryDatalist() {
-  var datalist = document.getElementById('category-list');
-  var categories = getCategories();
-  datalist.innerHTML = categories.map(function(cat) {
-    return '<option value="' + escapeHtml(cat) + '">';
-  }).join('');
-}
-
-// ===== ステータス表示 =====
-function showStatus(msg) {
-  var el = document.getElementById('status-msg');
-  el.textContent = msg;
-  el.classList.add('show');
-  setTimeout(function() {
-    el.classList.remove('show');
-  }, 2500);
-}
-
-// ===== カレンダー設定 =====
-function loadCalendarSettings() {
-  var saveBtn = document.getElementById('save-ical-url');
-  if (saveBtn) saveBtn.addEventListener('click', saveCalendarUrl);
-  var testBtn = document.getElementById('test-ical-url');
-  if (testBtn) testBtn.addEventListener('click', testCalendarUrl);
-  chrome.storage.sync.get('icalUrl', function(data) {
-    var input = document.getElementById('ical-url');
-    if (input && data.icalUrl) input.value = data.icalUrl;
   });
 }
-
-function saveCalendarUrl() {
-  var url = document.getElementById('ical-url').value.trim();
-  chrome.storage.sync.set({ icalUrl: url }, function() {
-    showStatus(url ? 'iCal URLを保存しました' : 'iCal URLをクリアしました');
+// ===== 検索エンジン設定 =====
+var MAX_ENABLED=4;
+var SEARCH_PRESETS=[
+  {id:'google',name:'Google',url:'https://www.google.com/search?q=%s',icon:'https://www.google.com/favicon.ico',enabled:true,preset:true},
+  {id:'perplexity',name:'Perplexity',url:'https://www.perplexity.ai/search?q=%s',icon:'https://www.google.com/s2/favicons?sz=64&domain=perplexity.ai',enabled:true,preset:true},
+  {id:'amazon',name:'Amazon',url:'https://www.amazon.co.jp/s?k=%s',icon:'https://www.google.com/s2/favicons?sz=64&domain=amazon.co.jp',enabled:false,preset:true},
+  {id:'youtube',name:'YouTube',url:'https://www.youtube.com/results?search_query=%s',icon:'https://www.google.com/s2/favicons?sz=64&domain=youtube.com',enabled:false,preset:true},
+  {id:'chatgpt',name:'ChatGPT',url:'https://chatgpt.com/?q=%s',icon:'https://www.google.com/s2/favicons?sz=64&domain=chatgpt.com',enabled:false,preset:true},
+  {id:'claude',name:'Claude',url:'https://claude.ai/new?q=%s',icon:'https://www.google.com/s2/favicons?sz=64&domain=claude.ai',enabled:false,preset:true}
+];
+var searchEngines=[];
+function loadSearchSettings(){
+  chrome.storage.sync.get('searchEngines',function(data){
+    searchEngines=data.searchEngines||SEARCH_PRESETS.map(function(p){return Object.assign({},p);});
+    renderSearchEngineList();renderSearchPreview();
   });
 }
-
-function testCalendarUrl() {
-  var url = document.getElementById('ical-url').value.trim();
-  var statusEl = document.getElementById('ical-status');
-  if (!url) {
-    statusEl.textContent = '❌ URLを入力してください';
-    statusEl.className = 'ical-status error';
-    return;
-  }
-  statusEl.textContent = '⏳ 取得中...';
-  statusEl.className = 'ical-status';
-  fetch(url)
-    .then(function(res) { return res.text(); })
-    .then(function(text) {
-      var count = (text.match(/BEGIN:VEVENT/g) || []).length;
-      if (count > 0) {
-        statusEl.textContent = '✅ 成功！ ' + count + '件のイベントを検出';
-        statusEl.className = 'ical-status success';
-      } else {
-        statusEl.textContent = '⚠️ 取得できましたがイベントが見つかりません';
-        statusEl.className = 'ical-status warning';
-      }
-    })
-    .catch(function(err) {
-      statusEl.textContent = '❌ 取得失敗: ' + err.message;
-      statusEl.className = 'ical-status error';
+function saveSearchEngines(cb){chrome.storage.sync.set({searchEngines:searchEngines},function(){renderSearchPreview();if(cb)cb();});}
+function getEnabledCount(){return searchEngines.filter(function(e){return e.enabled;}).length;}
+function renderSearchEngineList(){
+  var container=document.getElementById('search-engine-list'),cnt=getEnabledCount();
+  document.getElementById('engine-enabled-count').textContent=cnt+' / '+MAX_ENABLED+' 有効';
+  var html='';
+  searchEngines.forEach(function(engine){
+    var tA=engine.enabled?' active':'',tD=(!engine.enabled&&cnt>=MAX_ENABLED)?' disabled':'';
+    html+='<div class="engine-row" draggable="true" data-engine-id="'+engine.id+'">';
+    html+='<span class="engine-drag">⠿</span>';
+    html+='<img class="engine-icon" src="'+escapeHtml(engine.icon)+'" alt="" onerror="this.style.display=\'none\'">';
+    html+='<span class="engine-name">'+escapeHtml(engine.name)+'</span>';
+    html+='<div class="engine-actions"><div class="toggle-switch'+tA+tD+'" data-engine-id="'+engine.id+'"></div>';
+    if(!engine.preset)html+='<button class="btn btn-delete" data-del-engine="'+engine.id+'">🗑️</button>';
+    html+='</div></div>';
+  });
+  container.innerHTML=html;
+  container.querySelectorAll('.toggle-switch').forEach(function(toggle){
+    toggle.addEventListener('click',function(){
+      if(this.classList.contains('disabled'))return;
+      var id=this.getAttribute('data-engine-id');
+      var engine=searchEngines.find(function(e){return e.id===id;});if(!engine)return;
+      engine.enabled=!engine.enabled;
+      saveSearchEngines(function(){renderSearchEngineList();});
     });
+  });
+  container.querySelectorAll('[data-del-engine]').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var id=this.getAttribute('data-del-engine');
+      searchEngines=searchEngines.filter(function(e){return e.id!==id;});
+      saveSearchEngines(function(){renderSearchEngineList();showStatus('検索エンジンを削除しました');});
+    });
+  });
+  setupEngineDnD(container);
 }
-
-// ===== HTML エスケープ =====
-function escapeHtml(str) {
-  var div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
+function setupEngineDnD(container){
+  var draggedRow=null;
+  container.querySelectorAll('.engine-row').forEach(function(row){
+    row.addEventListener('dragstart',function(e){draggedRow=this;this.classList.add('dragging');e.dataTransfer.effectAllowed='move';});
+    row.addEventListener('dragover',function(e){
+      e.preventDefault();if(this===draggedRow)return;
+      container.querySelectorAll('.engine-row').forEach(function(r){r.classList.remove('drag-over-above','drag-over-below');});
+      var rect=this.getBoundingClientRect();this.classList.add(e.clientY<rect.top+rect.height/2?'drag-over-above':'drag-over-below');
+    });
+    row.addEventListener('dragleave',function(){this.classList.remove('drag-over-above','drag-over-below');});
+    row.addEventListener('drop',function(e){
+      e.preventDefault();
+      container.querySelectorAll('.engine-row').forEach(function(r){r.classList.remove('drag-over-above','drag-over-below');});
+      if(!draggedRow||this===draggedRow)return;
+      var fromId=draggedRow.getAttribute('data-engine-id'),toId=this.getAttribute('data-engine-id');
+      var above=e.clientY<this.getBoundingClientRect().top+this.getBoundingClientRect().height/2;
+      var fromIdx=searchEngines.findIndex(function(e){return e.id===fromId;});
+      var item=searchEngines.splice(fromIdx,1)[0];
+      var toIdx=searchEngines.findIndex(function(e){return e.id===toId;});if(!above)toIdx++;
+      searchEngines.splice(toIdx,0,item);
+      saveSearchEngines(function(){renderSearchEngineList();});
+    });
+    row.addEventListener('dragend',function(){this.classList.remove('dragging');container.querySelectorAll('.engine-row').forEach(function(r){r.classList.remove('drag-over-above','drag-over-below');});});
+  });
+}
+function renderSearchPreview(){
+  var area=document.getElementById('search-preview-area');
+  var enabled=searchEngines.filter(function(e){return e.enabled;});
+  if(enabled.length===0){area.innerHTML='<p class="empty-msg">検索バーは非表示です</p>';area.removeAttribute('data-count');return;}
+  area.setAttribute('data-count',enabled.length);
+  var html='';
+  enabled.forEach(function(engine){
+    html+='<div class="preview-search-box"><img src="'+escapeHtml(engine.icon)+'" alt="" class="preview-icon" onerror="this.style.display=\'none\'"><span class="preview-placeholder">'+escapeHtml(engine.name)+' で検索...</span></div>';
+  });
+  area.innerHTML=html;
+}
+function handleAddEngine(){
+  var name=document.getElementById('engine-name').value.trim(),url=document.getElementById('engine-url').value.trim();
+  if(!name||!url){showStatus('名前とURLを入力してください');return;}
+  if(url.indexOf('%s')===-1){showStatus('URLに %s を含めてください');return;}
+  var domain='';try{domain=new URL(url.replace('%s','test')).hostname;}catch(e){}
+  searchEngines.push({id:'custom-'+Date.now(),name:name,url:url,icon:domain?'https://www.google.com/s2/favicons?sz=64&domain='+domain:'',enabled:false,preset:false});
+  saveSearchEngines(function(){renderSearchEngineList();showStatus('「'+name+'」を追加しました');document.getElementById('engine-name').value='';document.getElementById('engine-url').value='';});
 }
