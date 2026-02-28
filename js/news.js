@@ -42,11 +42,19 @@ async function loadNews() {
     var articles = data.items;
 
     container.innerHTML = articles.map(function(item) {
+      var thumbUrl = item.thumbnail || (item.enclosure && item.enclosure.link) || '';
+      var domain = '';
+      try { domain = new URL(item.link).hostname; } catch(e) {}
+      var faviconUrl = domain ? 'https://www.google.com/s2/favicons?sz=128&domain=' + encodeURIComponent(domain) : '';
+      var imgSrc = thumbUrl || faviconUrl;
+      var thumbHtml = imgSrc ? '<img class="news-thumb" src="' + escapeNewsAttr(imgSrc) + '" alt=""' + (thumbUrl && faviconUrl ? ' data-fallback="' + escapeNewsAttr(faviconUrl) + '"' : '') + ' onerror="handleThumbError(this)">' : '';
       return '<div class="news-item">' +
+        thumbHtml +
+        '<div class="news-item-content">' +
         '<a href="' + escapeNewsAttr(item.link) + '" target="_blank" rel="noopener">' + escapeNewsHtml(item.title) + '</a>' +
         '<div class="news-source">' + escapeNewsHtml(item.author || '') + ' · ' +
         new Date(item.pubDate).toLocaleDateString('ja-JP') + '</div>' +
-        '</div>';
+        '</div></div>';
     }).join('');
 
   } catch (err) {
@@ -61,4 +69,12 @@ function escapeNewsAttr(s) {
 
 function escapeNewsHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function handleThumbError(img) {
+  var fallback = img.getAttribute('data-fallback');
+  if (fallback && img.src !== fallback) {
+    img.src = fallback;
+  } else {
+    img.style.display = 'none';
+  }
 }

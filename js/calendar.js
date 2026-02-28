@@ -5,10 +5,49 @@
 var currentDate = new Date();
 var eventDays = new Set();
 var allEvents = [];
+var filterMode = 'month';
 
 function loadCalendarEmbed() {
-  renderCalendar();
-  fetchICalData(true);
+  loadFilterMode(function() {
+    renderFilterTabs();
+    renderCalendar();
+    fetchICalData(true);
+  });
+}
+// ===== フィルタモード読み込み =====
+function loadFilterMode(cb) {
+  chrome.storage.sync.get('eventFilterMode', function(data) {
+    filterMode = data.eventFilterMode || 'month';
+    if (cb) cb();
+  });
+}
+// ===== フィルタタブ描画 =====
+function renderFilterTabs() {
+  var card = document.getElementById('events-container').parentElement;
+  var existing = card.querySelector('.filter-tabs');
+  if (existing) existing.remove();
+  var tabs = document.createElement('div');
+  tabs.className = 'filter-tabs';
+  var modes = [
+    { id: 'month', label: '月' },
+    { id: 'week', label: '週' },
+    { id: 'day', label: '日' }
+  ];
+  modes.forEach(function(m) {
+    var btn = document.createElement('button');
+    btn.className = 'filter-tab' + (filterMode === m.id ? ' active' : '');
+    btn.textContent = m.label;
+    btn.setAttribute('data-mode', m.id);
+    btn.addEventListener('click', function() {
+      filterMode = m.id;
+      chrome.storage.sync.set({ eventFilterMode: filterMode });
+      card.querySelectorAll('.filter-tab').forEach(function(t) { t.classList.remove('active'); });
+      this.classList.add('active');
+      renderFilteredEvents();
+    });
+    tabs.appendChild(btn);
+  });
+  card.insertBefore(tabs, document.getElementById('events-container'));
 }
 
 // ===== ユーティリティ =====
@@ -75,14 +114,14 @@ function renderCalendar() {
     currentDate.setMonth(currentDate.getMonth() - 1);
     updateCalendarDots(currentDate);
     renderCalendar();
-    renderMonthEvents();
+    if (filterMode === 'month') renderFilteredEvents();
   });
 
   document.getElementById('cal-next').addEventListener('click', function() {
     currentDate.setMonth(currentDate.getMonth() + 1);
     updateCalendarDots(currentDate);
     renderCalendar();
-    renderMonthEvents();
+    if (filterMode === 'month') renderFilteredEvents();
   });
 }
 
@@ -105,7 +144,7 @@ async function fetchICalData(renderList) {
     allEvents = parseICalEvents(text);
     updateCalendarDots(currentDate);
     renderCalendar();
-    if (renderList) renderMonthEvents();
+    if (renderList) renderFilteredEvents();
   } catch (err) {
     console.error('iCal fetch error:', err);
     if (renderList) {
@@ -115,10 +154,40 @@ async function fetchICalData(renderList) {
   }
 }
 
-// ===== 表示中の月の予定リストを描画 =====
-function renderMonthEvents() {
-  var monthEvents = filterMonthEvents(allEvents, currentDate);
-  renderICalEventsList(monthEvents);
+// ===== フィルタモードに応じた予定リスト描画 =====
+function renderFilteredEvents() {
+  var filtered;
+  if (filterMode === 'week') {
+    filtered = filterWeekEvents(allEvents);
+  } else if (filterMode === 'day') {
+    filtered = filterDayEvents(allEvents);
+  } else {
+    filtered = filterMonthEvents(allEvents, currentDate);
+  }
+  renderICalEventsList(filtered);
+}
+// ===== 今週の予定フィルタ =====
+function filterWeekEvents(events) {
+  var now = new Date();
+  var dayOfWeek = now.getDay();
+  var weekStart = new Date(now);
+  weekStart.setDate(now.getDate() - dayOfWeek);
+  weekStart.setHours(0, 0, 0, 0);
+  var weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 7);
+  return events.filter(function(ev) {
+    return ev.start >= weekStart && ev.start < weekEnd;
+  });
+}
+// ===== 今日の予定フィルタ =====
+function filterDayEvents(events) {
+  var now = new Date();
+  var dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  var dayEnd = new Date(dayStart);
+  dayEnd.setDate(dayStart.getDate() + 1);
+  return events.filter(function(ev) {
+    return ev.start >= dayStart && ev.start < dayEnd;
+  });
 }
 
 // ===== iCal テキストパーサー =====
@@ -338,7 +407,7 @@ function renderICalEventsList(items) {
         html += '<a class="meeting-join-btn inactive" href="' + escapeAttr(item.meetingUrl) + '"' +
           ' target="_blank" rel="noopener"' +
           ' data-start="' + item.start.toISOString() + '"' +
-          ' data-end="' + item.end.toISOString() + '">📹</a>';
+          ' data-end="' + item.end.toISOString() + '"><span class="meeting-btn-icon">▶</span>参加</a>';
       }
       html += '</div>';
     });
