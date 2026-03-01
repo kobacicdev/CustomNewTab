@@ -293,7 +293,7 @@ var SEARCH_PRESETS=[
   {id:'amazon',name:'Amazon',url:'https://www.amazon.co.jp/s?k=%s',icon:'https://www.google.com/s2/favicons?sz=64&domain=amazon.co.jp',enabled:false,preset:true},
   {id:'youtube',name:'YouTube',url:'https://www.youtube.com/results?search_query=%s',icon:'https://www.google.com/s2/favicons?sz=64&domain=youtube.com',enabled:false,preset:true},
   {id:'chatgpt',name:'ChatGPT',url:'https://chatgpt.com/?q=%s',icon:'https://www.google.com/s2/favicons?sz=64&domain=chatgpt.com',enabled:false,preset:true},
-  {id:'claude',name:'Claude',url:'https://claude.ai/new?q=%s',icon:'https://www.google.com/s2/favicons?sz=64&domain=claude.ai',enabled:false,preset:true}
+  {id:'gemini',name:'Gemini',url:'https://gemini.google.com/app?q=%s&hl=ja',icon:'https://www.google.com/s2/favicons?sz=64&domain=gemini.google.com',enabled:false,preset:true}
 ];
 var searchEngines=[];
 function loadSearchSettings(){

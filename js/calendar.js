@@ -373,7 +373,7 @@ function updateCalendarDots(targetDate) {
 function renderICalEventsList(items) {
   var container = document.getElementById('events-container');
   if (!items || items.length === 0) {
-    container.innerHTML = '<p style="color:var(--text-muted);">予定はありません 🎉</p>';
+    container.innerHTML = '<p style="color:var(--text-muted);">予定はありません</p>';
     return;
   }
   var groups = {};

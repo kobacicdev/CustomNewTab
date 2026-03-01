@@ -16,23 +16,23 @@
       <nav class="sidebar">
         <ul class="sidebar-list">
           <li class="sidebar-item active" data-section="favorites">
-            <span class="sidebar-icon">⭐</span>
+            <span class="sidebar-icon">☆</span>
             <span class="sidebar-label">お気に入りサイト</span>
           </li>
           <li class="sidebar-item" data-section="calendar">
-            <span class="sidebar-icon">📅</span>
+            <span class="sidebar-icon">□</span>
             <span class="sidebar-label">カレンダー</span>
           </li>
           <li class="sidebar-item" data-section="news">
-            <span class="sidebar-icon">📰</span>
+            <span class="sidebar-icon">☰</span>
             <span class="sidebar-label">ニュース</span>
           </li>
           <li class="sidebar-item" data-section="search">
-            <span class="sidebar-icon">🔍</span>
+            <span class="sidebar-icon">⊙</span>
             <span class="sidebar-label">検索</span>
           </li>
           <li class="sidebar-item" data-section="theme">
-            <span class="sidebar-icon">🎨</span>
+            <span class="sidebar-icon">◑</span>
             <span class="sidebar-label">テーマ</span>
           </li>
         </ul>
@@ -89,7 +89,7 @@
             <div id="ical-status" class="ical-status"></div>
           </div>
           <div class="ical-help">
-            <h3>📖 iCal URL の取得方法（Google カレンダー）</h3>
+            <h3>iCal URL の取得方法（Google カレンダー）</h3>
             <ol>
               <li>Google カレンダーの<strong>設定</strong>を開く</li>
               <li>対象カレンダーの「カレンダーの統合」セクションへ</li>
@@ -130,6 +130,10 @@
         <div class="settings-section" id="section-search">
           <h2 class="section-title">検索</h2>
           <p class="section-desc">New Tabに表示する検索バーを管理します。最大4つまで有効にできます。</p>
+          <div class="search-preview-wrapper">
+            <h3>プレビュー</h3>
+            <div class="search-preview-area" id="search-preview-area"></div>
+          </div>
           <div class="engine-list-header">
             <h3>検索エンジン一覧</h3>
             <span class="engine-enabled-count" id="engine-enabled-count">0 / 4 有効</span>
@@ -149,10 +153,6 @@
               </div>
             </div>
             <button type="button" class="btn btn-add" id="add-engine-btn">追加</button>
-          </div>
-          <div class="search-preview-wrapper">
-            <h3>プレビュー</h3>
-            <div class="search-preview-area" id="search-preview-area"></div>
           </div>
         </div>
         <!-- テーマ -->

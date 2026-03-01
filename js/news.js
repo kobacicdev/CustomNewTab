@@ -1,7 +1,6 @@
 // js/news.js — Google News RSS → ニュース表示
-// v1.2: ソース切り替え（Googleトピック7種 + カスタムRSS）+ カード内スクロール対応
+// v1.2: ソース切り替え + RSS XML直接パース（DOMParser）+ カード内スクロール
 
-// Googleニュース トピックURL定義
 var NEWS_TOPICS = {
   'google-general':       'https://news.google.com/rss?hl=ja&gl=JP&ceid=JP:ja',
   'google-tech':          'https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGRqTVhZU0FtcGhHZ0pLVUNnQVAB?hl=ja&gl=JP&ceid=JP:ja',
@@ -16,7 +15,6 @@ async function loadNews() {
   var container = document.getElementById('news-container');
 
   try {
-    // ソース設定を取得
     var settings = await new Promise(function(resolve) {
       chrome.storage.sync.get(['newsSource', 'customRssUrl'], resolve);
     });
@@ -30,37 +28,78 @@ async function loadNews() {
       rssUrl = NEWS_TOPICS[source] || NEWS_TOPICS['google-general'];
     }
 
-    var apiUrl = 'https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent(rssUrl);
-    var res = await fetch(apiUrl);
-    var data = await res.json();
+    // C案: RSS XMLを直接fetch → DOMParserでパース（rss2json API廃止）
+    var res = await fetch(rssUrl);
+    var text = await res.text();
+    var xml = new DOMParser().parseFromString(text, 'application/xml');
+    var items = xml.querySelectorAll('item');
 
-    if (data.status !== 'ok' || !data.items) {
-      throw new Error('RSS fetch failed');
+    if (!items || items.length === 0) {
+      throw new Error('No items found in RSS');
     }
 
-    // v1.2: 件数制限を撤廃（カード内スクロールで全件表示）
-    var articles = data.items;
+    var html = '';
+    items.forEach(function(item) {
+      var title = getTagText(item, 'title');
+      var link = getTagText(item, 'link');
+      var pubDate = getTagText(item, 'pubDate');
 
-    container.innerHTML = articles.map(function(item) {
-      var thumbUrl = item.thumbnail || (item.enclosure && item.enclosure.link) || '';
-      var domain = '';
-      try { domain = new URL(item.link).hostname; } catch(e) {}
-      var faviconUrl = domain ? 'https://www.google.com/s2/favicons?sz=128&domain=' + encodeURIComponent(domain) : '';
+      // <source url="https://real-domain.com">ソース名</source>
+      var sourceEl = item.getElementsByTagName('source')[0];
+      var sourceUrl = sourceEl ? sourceEl.getAttribute('url') || '' : '';
+      var sourceName = sourceEl ? sourceEl.textContent.trim() : '';
+
+      // 記事元ドメイン: sourceUrl → link のフォールバック
+      var sourceDomain = '';
+      try { sourceDomain = new URL(sourceUrl || link).hostname; } catch(e) {}
+
+      // サムネイル: media:content → enclosure
+      var thumbUrl = '';
+      var mediaContent = item.getElementsByTagName('media:content');
+      if (mediaContent && mediaContent.length > 0) {
+        thumbUrl = mediaContent[0].getAttribute('url') || '';
+      }
+      if (!thumbUrl) {
+        var enclosure = item.getElementsByTagName('enclosure');
+        if (enclosure && enclosure.length > 0) {
+          thumbUrl = enclosure[0].getAttribute('url') || '';
+        }
+      }
+
+      // favicon: 記事元ドメインから取得（Googleニュースではなく実際の配信元）
+      var faviconUrl = sourceDomain
+        ? 'https://www.google.com/s2/favicons?sz=128&domain=' + encodeURIComponent(sourceDomain)
+        : '';
       var imgSrc = thumbUrl || faviconUrl;
-      var thumbHtml = imgSrc ? '<img class="news-thumb" src="' + escapeNewsAttr(imgSrc) + '" alt=""' + (thumbUrl && faviconUrl ? ' data-fallback="' + escapeNewsAttr(faviconUrl) + '"' : '') + ' onerror="handleThumbError(this)">' : '';
-      return '<div class="news-item">' +
+      var thumbHtml = imgSrc
+        ? '<img class="news-thumb" src="' + escapeNewsAttr(imgSrc) + '" alt=""' +
+          (thumbUrl && faviconUrl ? ' data-fallback="' + escapeNewsAttr(faviconUrl) + '"' : '') +
+          ' onerror="handleThumbError(this)">'
+        : '';
+
+      var dateStr = '';
+      try { dateStr = new Date(pubDate).toLocaleDateString('ja-JP'); } catch(e) {}
+
+      html += '<div class="news-item">' +
         thumbHtml +
         '<div class="news-item-content">' +
-        '<a href="' + escapeNewsAttr(item.link) + '" target="_blank" rel="noopener">' + escapeNewsHtml(item.title) + '</a>' +
-        '<div class="news-source">' + escapeNewsHtml(item.author || '') + ' · ' +
-        new Date(item.pubDate).toLocaleDateString('ja-JP') + '</div>' +
+        '<a href="' + escapeNewsAttr(link) + '" target="_blank" rel="noopener">' + escapeNewsHtml(title) + '</a>' +
+        '<div class="news-source">' + escapeNewsHtml(sourceName) + (dateStr ? ' · ' + dateStr : '') + '</div>' +
         '</div></div>';
-    }).join('');
+    });
+
+    container.innerHTML = html;
 
   } catch (err) {
     container.innerHTML = '<p class="loading">ニュースを取得できませんでした</p>';
     console.error('News Error:', err);
   }
+}
+
+function getTagText(item, tagName) {
+  var el = item.getElementsByTagName(tagName);
+  if (!el || el.length === 0) return '';
+  return el[0].textContent.trim();
 }
 
 function escapeNewsAttr(s) {
@@ -70,6 +109,7 @@ function escapeNewsAttr(s) {
 function escapeNewsHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
+
 function handleThumbError(img) {
   var fallback = img.getAttribute('data-fallback');
   if (fallback && img.src !== fallback) {
