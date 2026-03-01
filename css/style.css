@@ -240,7 +240,7 @@ body {
 
 /* ===== 予定リスト ===== */
 .event-item { display:flex; align-items:flex-start; padding:10px 0; border-bottom:1px solid var(--divider); }
-.event-time { min-width:65px; font-size:13px; color: var(--text-secondary); font-weight:600; }
+.event-time { min-width:110px; font-size:13px; color: var(--text-secondary); font-weight:600; }
 .event-title { font-size:14px; }
 #events-container { flex:1; overflow-y:auto; padding-right:4px; }
 #events-container::-webkit-scrollbar { width:4px; }

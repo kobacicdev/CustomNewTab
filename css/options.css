@@ -147,10 +147,15 @@ body { font-family:'Segoe UI','Noto Sans JP',sans-serif; background: var(--bg-gr
 .fav-row:active { cursor:grabbing; }
 .fav-row-drag { color: var(--text-muted); font-size:14px; cursor:grab; user-select:none; }
 .fav-row-icon { width:20px; height:20px; border-radius:4px; }
-.fav-row-name { font-size:13px; color: var(--text-primary); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.fav-row-url { font-size:11px; color: var(--text-muted); max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.fav-row-info { display:flex; flex-direction:column; flex:1; min-width:0; gap:1px; }
+.fav-row-name { font-size:13px; color: var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.fav-row-url { font-size:11px; color: var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .fav-row-actions { display:flex; gap:6px; opacity:0; transition:opacity 0.2s; }
 .fav-row:hover .fav-row-actions { opacity:1; }
+.fav-row.editing { background: var(--accent-light); }
+.fav-row.editing .fav-row-actions { opacity:1; }
+.fav-row.editing .fav-row-info { gap:4px; }
+.fav-row.editing .inline-edit-input { width:100%; }
 .inline-edit-input { background: var(--input-bg); border:1px solid var(--input-focus-border); border-radius:6px; padding:4px 8px; color: var(--text-heading); font-size:13px; outline:none; width:100%; }
 .inline-select { background: var(--input-bg); border:1px solid var(--input-border); border-radius:8px; padding:9px 12px; color: var(--text-heading); font-size:13px; outline:none; min-width:240px; cursor:pointer; }
 .inline-select:focus { border-color: var(--input-focus-border); }

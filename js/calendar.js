@@ -386,7 +386,7 @@ function renderICalEventsList(items) {
     if (!groups[groupKey]) groups[groupKey] = [];
     var timeStr = ev.isAllDay
       ? '終日'
-      : ev.start.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+      : ev.start.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }) + (ev.end ? ' \u2013 ' + ev.end.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }) : '');
     groups[groupKey].push({
       time: timeStr,
       title: ev.summary,
