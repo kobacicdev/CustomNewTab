@@ -47,7 +47,6 @@ function updateCategorySelect(){
   var sel=document.getElementById('fav-category');
   var cats=storedSections.slice();
   favorites.forEach(function(f){if(f.category&&cats.indexOf(f.category)===-1)cats.push(f.category);});
-  if(cats.length===0)cats.push('メイン');
   var html='';
   cats.forEach(function(c){html+='<option value="'+escapeHtml(c)+'">'+escapeHtml(c)+'</option>';});
   html+='<option value="__new__">＋ 新規セクション</option>';
@@ -57,6 +56,7 @@ function updateCategorySelect(){
     if(this.value==='__new__'){ni.style.display='';cb.style.display='';ni.focus();}else{ni.style.display='none';cb.style.display='none';ni.value='';}
   };
   document.getElementById('cancel-new-category').onclick=function(){sel.value=sel.options[0].value;document.getElementById('fav-category-new').style.display='none';this.style.display='none';};
+  if(cats.length===0){document.getElementById('fav-category-new').style.display='';document.getElementById('cancel-new-category').style.display='none';}
 }
 function handleAddFavorite(e){
   e.preventDefault();
@@ -268,7 +268,7 @@ var THEME_LIST=[
   {id:'light',name:'ライト',colors:['#eef0f5','#e0e2ea','#f0f2f8']},
   {id:'slate',name:'スレート',colors:['#18181c','#252530','#1e1e28']}
 ];
-function loadThemeSettings(){chrome.storage.sync.get('theme',function(data){renderThemeGrid(data.theme||'dark-purple');});}
+function loadThemeSettings(){chrome.storage.sync.get('theme',function(data){renderThemeGrid(data.theme||'slate');});}
 function renderThemeGrid(current){
   var container=document.getElementById('theme-grid'),html='';
   THEME_LIST.forEach(function(t){
