@@ -1,28 +1,18 @@
 // ===== お気に入りサイト表示（New Tab側） =====
 // データ形式：フラット配列 [{id, name, url, category}, ...]
-
-var DEFAULT_FAVORITES = [
-  { id: '1', name: 'Notion', url: 'https://notion.so', category: '仕事' },
-  { id: '2', name: 'Slack', url: 'https://slack.com', category: '仕事' },
-  { id: '3', name: 'Gmail', url: 'https://mail.google.com', category: '仕事' },
-  { id: '4', name: 'YouTube', url: 'https://youtube.com', category: 'よく使う' },
-  { id: '5', name: 'GitHub', url: 'https://github.com', category: 'よく使う' },
-  { id: '6', name: 'ChatGPT', url: 'https://chat.openai.com', category: 'よく使う' },
-  { id: '7', name: 'Zenn', url: 'https://zenn.dev', category: 'ニュース・情報' },
-  { id: '8', name: 'Qiita', url: 'https://qiita.com', category: 'ニュース・情報' }
-];
+// v1.2: デフォルトお気に入り削除、空配列フォールバック
 
 async function loadFavorites() {
   var container = document.getElementById('favorites-container');
 
   var items = await new Promise(function(resolve) {
     chrome.storage.sync.get('favorites', function(result) {
-      resolve(result.favorites || DEFAULT_FAVORITES);
+      resolve(result.favorites || []);
     });
   });
 
   if (!Array.isArray(items) || items.length === 0) {
-    container.innerHTML = '<p style="color:#888;">お気に入りがありません。設定から追加してください。</p>';
+    container.innerHTML = '<p style="color:var(--text-muted);font-size:13px;">設定画面からお気に入りサイトを追加してください。</p>';
     return;
   }
 

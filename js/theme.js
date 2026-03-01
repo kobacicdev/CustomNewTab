@@ -5,7 +5,7 @@
   // chrome.storage で正式値を同期
   if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.sync) {
     chrome.storage.sync.get('theme', function(data) {
-      var theme = data.theme || 'dark-purple';
+      var theme = data.theme || 'slate';
       document.documentElement.setAttribute('data-theme', theme);
       localStorage.setItem('ntTheme', theme);
     });
