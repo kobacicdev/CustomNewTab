@@ -235,17 +235,32 @@ function moveSiteToSection(favId,targetCat){
   var fav=favorites.find(function(f){return f.id===favId;});if(!fav)return;
   fav.category=targetCat;saveFavorites(function(){showStatus('セクションを移動しました');});
 }
+// ===== ホスト権限リクエスト（optional_host_permissions） =====
+function requestHostAccess(url,cb){
+  try{var o=new URL(url).origin+'/*';}catch(e){cb(false);return;}
+  chrome.permissions.request({origins:[o]},function(g){cb(!!g);});
+}
 // ===== iCal =====
 function loadIcalUrl(){chrome.storage.sync.get('icalUrl',function(data){if(data.icalUrl)document.getElementById('ical-url').value=data.icalUrl;});}
-function saveIcalUrl(){var url=document.getElementById('ical-url').value.trim();chrome.storage.sync.set({icalUrl:url},function(){showStatus('iCal URLを保存しました');});}
+function saveIcalUrl(){
+  var url=document.getElementById('ical-url').value.trim();
+  if(!url){chrome.storage.sync.set({icalUrl:''},function(){showStatus('iCal URLをクリアしました');});return;}
+  requestHostAccess(url,function(ok){
+    if(!ok){showStatus('URLへのアクセス権限が必要です');return;}
+    chrome.storage.sync.set({icalUrl:url},function(){showStatus('iCal URLを保存しました');});
+  });
+}
 function testIcalUrl(){
   var url=document.getElementById('ical-url').value.trim(),status=document.getElementById('ical-status');
   if(!url){status.textContent='URLを入力してください';return;}
-  status.textContent='テスト中...';
-  fetch(url).then(function(r){return r.text();}).then(function(text){
-    var count=(text.match(/BEGIN:VEVENT/g)||[]).length;
-    status.textContent='✅ 取得成功！'+count+'件のイベントが見つかりました';
-  }).catch(function(err){status.textContent='❌ 取得失敗：'+err.message;});
+  requestHostAccess(url,function(ok){
+    if(!ok){status.textContent='❌ URLへのアクセス権限が必要です';return;}
+    status.textContent='テスト中...';
+    fetch(url).then(function(r){return r.text();}).then(function(text){
+      var count=(text.match(/BEGIN:VEVENT/g)||[]).length;
+      status.textContent='✅ 取得成功！'+count+'件のイベントが見つかりました';
+    }).catch(function(err){status.textContent='❌ 取得失敗：'+err.message;});
+  });
 }
 // ===== ニュース =====
 function loadNewsSource(){
@@ -256,7 +271,17 @@ function loadNewsSource(){
 }
 function saveNewsSource(){
   var source=document.getElementById('news-source').value,data={newsSource:source};
-  if(source==='custom')data.customRssUrl=document.getElementById('custom-rss-url').value.trim();
+  if(source==='custom'){
+    var rssUrl=document.getElementById('custom-rss-url').value.trim();
+    data.customRssUrl=rssUrl;
+    if(rssUrl){
+      requestHostAccess(rssUrl,function(ok){
+        if(!ok){showStatus('URLへのアクセス権限が必要です');return;}
+        chrome.storage.sync.set(data,function(){showStatus('ニュースソースを保存しました');});
+      });
+      return;
+    }
+  }
   chrome.storage.sync.set(data,function(){showStatus('ニュースソースを保存しました');});
 }
 // ===== テーマ設定 =====

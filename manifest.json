@@ -1,12 +1,15 @@
 {
   "manifest_version": 3,
   "name": "Custom New Tab",
-  "version": "1.2.0",
+  "version": "1.0.0",
   "description": "カスタム新規タブ：カレンダー、お気に入り、検索、ニュースを一画面に",
   "permissions": [
     "storage"
   ],
   "host_permissions": [
+    "https://news.google.com/*"
+  ],
+  "optional_host_permissions": [
     "*://*/*"
   ],
   "chrome_url_overrides": {
