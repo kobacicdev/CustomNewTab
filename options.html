@@ -27,13 +27,17 @@
             <span class="sidebar-icon">☰</span>
             <span class="sidebar-label">ニュース</span>
           </li>
-          <li class="sidebar-item" data-section="search">
-            <span class="sidebar-icon">⊙</span>
-            <span class="sidebar-label">検索</span>
+<li class="sidebar-item" data-section="layout">
+            <span class="sidebar-icon">⊞</span>
+            <span class="sidebar-label">レイアウト</span>
           </li>
           <li class="sidebar-item" data-section="theme">
             <span class="sidebar-icon">◑</span>
             <span class="sidebar-label">テーマ</span>
+          </li>
+          <li class="sidebar-item" data-section="export">
+            <span class="sidebar-icon">↑↓</span>
+            <span class="sidebar-label">設定の出力</span>
           </li>
         </ul>
       </nav>
@@ -71,30 +75,98 @@
             <p class="empty-msg">お気に入りがまだありません</p>
           </div>
         </div>
-        <!-- カレンダー -->
+        <!-- カレンダー（v1.3: OAuth + iCal ハイブリッド対応） -->
         <div class="settings-section" id="section-calendar">
           <h2 class="section-title">カレンダー</h2>
-          <p class="section-desc">iCal URLを登録して、New Tabにカレンダー予定を表示します。</p>
-          <div class="add-form">
-            <div class="form-row">
-              <div class="form-group">
-                <label for="ical-url">iCal URL</label>
-                <input type="url" id="ical-url" placeholder="例: https://calendar.google.com/calendar/ical/...basic.ics">
+
+          <!-- ===== 予定追加機能ON/OFF ===== -->
+          <div class="add-form" style="margin-bottom:20px">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div>
+                <h3 style="font-size:14px;color:var(--text-heading);margin-bottom:4px">予定追加機能</h3>
+                <p class="section-desc" style="margin-bottom:0">ONにすると、カレンダーの日付クリックでGoogleカレンダーに予定を追加できます。</p>
               </div>
+              <div class="toggle-switch" id="toggle-event-add"></div>
             </div>
-            <div class="ical-btn-row">
-              <button type="button" class="btn btn-add" id="save-ical-url">保存</button>
-              <button type="button" class="btn btn-edit" id="test-ical-url">テスト取得</button>
-            </div>
-            <div id="ical-status" class="ical-status"></div>
           </div>
-          <div class="ical-help">
-            <h3>iCal URL の取得方法（Google カレンダー）</h3>
+
+          <!-- ===== Google OAuth セクション ===== -->
+          <div class="cal-subsection">
+            <h3 class="subsection-title">🔗 Googleアカウント（OAuth）</h3>
+            <p class="section-desc">Googleアカウントでログインして、Calendar APIで予定を取得します。</p>
+
+            <div class="add-form">
+              <div class="form-row">
+                <div class="form-group">
+                  <label>カラー</label>
+                  <div class="cal-color-presets" id="new-cal-color-presets">
+                    <span class="cal-preset-dot active" data-color="#6c63ff" style="background:#6c63ff"></span>
+                    <span class="cal-preset-dot" data-color="#3d8bff" style="background:#3d8bff"></span>
+                    <span class="cal-preset-dot" data-color="#4caf50" style="background:#4caf50"></span>
+                    <span class="cal-preset-dot" data-color="#f9c74f" style="background:#f9c74f"></span>
+                    <span class="cal-preset-dot" data-color="#e8853d" style="background:#e8853d"></span>
+                    <span class="cal-preset-dot" data-color="#ff6b6b" style="background:#ff6b6b"></span>
+                  </div>
+                </div>
+              </div>
+              <button type="button" class="btn btn-add" id="add-gcal-btn">Googleアカウントでログイン</button>
+              <div id="gcal-add-status" class="ical-status"></div>
+            </div>
+
+            <div class="cal-list-header">
+              <h4>登録済みアカウント</h4>
+            </div>
+            <div id="calendar-list" class="calendar-list"></div>
+          </div>
+
+          <!-- ===== iCal URL セクション ===== -->
+          <div class="cal-subsection" style="margin-top:28px;padding-top:20px;border-top:1px solid var(--divider)">
+            <h3 class="subsection-title">📅 iCal URL</h3>
+            <p class="section-desc">Outlook、Apple Calendar、その他のカレンダーをiCal URL（.ics）で追加できます。</p>
+
+            <div class="add-form">
+              <div class="form-row">
+                <div class="form-group" style="flex:2">
+                  <label>カレンダー名</label>
+                  <input type="text" id="ical-name-input" placeholder="例：会社Outlook" />
+                </div>
+                <div class="form-group">
+                  <label>カラー</label>
+                  <div class="cal-color-presets" id="ical-color-presets">
+                    <span class="cal-preset-dot active" data-color="#999999" style="background:#999999"></span>
+                    <span class="cal-preset-dot" data-color="#6c63ff" style="background:#6c63ff"></span>
+                    <span class="cal-preset-dot" data-color="#3d8bff" style="background:#3d8bff"></span>
+                    <span class="cal-preset-dot" data-color="#4caf50" style="background:#4caf50"></span>
+                    <span class="cal-preset-dot" data-color="#e8853d" style="background:#e8853d"></span>
+                    <span class="cal-preset-dot" data-color="#ff6b6b" style="background:#ff6b6b"></span>
+                  </div>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group" style="flex:1">
+                  <label>iCal URL</label>
+                  <input type="url" id="ical-url-input" placeholder="https://...ical / .ics" />
+                </div>
+              </div>
+              <button type="button" class="btn btn-add" id="add-ical-btn">iCal URLを追加</button>
+              <div id="ical-add-status" class="ical-status"></div>
+            </div>
+
+            <div class="cal-list-header">
+              <h4>登録済みiCal</h4>
+            </div>
+            <div id="ical-list" class="calendar-list"></div>
+          </div>
+
+          <!-- ===== 注意事項 ===== -->
+          <div class="ical-help" style="margin-top:24px">
+            <h3>注意事項</h3>
             <ol>
-              <li>Google カレンダーの<strong>設定</strong>を開く</li>
-              <li>対象カレンダーの「カレンダーの統合」セクションへ</li>
-              <li>「iCal形式の<strong>秘密のアドレス</strong>」をコピー</li>
-              <li>上のフォームに貼り付けて「保存」をクリック</li>
+              <li><strong>Googleカレンダー</strong>は「Googleアカウントでログイン」（OAuth）を推奨</li>
+              <li><strong>Outlook / Apple Calendar等</strong>はiCal URLで追加</li>
+              <li>同じカレンダーを両方に登録すると予定が重複する場合があります（簡易重複排除あり）</li>
+              <li>OAuthトークンは1時間で期限切れ → 自動リフレッシュされます</li>
+              <li>iCal URLはCORS制限を受ける場合があります（プロキシ設定が必要な場合あり）</li>
             </ol>
           </div>
         </div>
@@ -126,33 +198,34 @@
             <div id="news-status" class="ical-status"></div>
           </div>
         </div>
-        <!-- 検索バー管理 -->
-        <div class="settings-section" id="section-search">
-          <h2 class="section-title">検索</h2>
-          <p class="section-desc">New Tabに表示する検索バーを管理します。最大4つまで有効にできます。</p>
-          <div class="search-preview-wrapper">
-            <h3>プレビュー</h3>
-            <div class="search-preview-area" id="search-preview-area"></div>
-          </div>
-          <div class="engine-list-header">
-            <h3>検索バー一覧</h3>
-            <span class="engine-enabled-count" id="engine-enabled-count">0 / 4 有効</span>
-          </div>
-          <div id="search-engine-list" class="engine-list"></div>
-          <div class="add-form" style="margin-top:20px">
-            <h3 style="font-size:14px;color:var(--text-heading);margin-bottom:12px">カスタム検索バー追加</h3>
-            <div class="form-row">
-              <div class="form-group">
-                <label for="engine-name">エンジン名</label>
-                <input type="text" id="engine-name" placeholder="例: Yahoo">
+<!-- v1.3: レイアウト -->
+        <div class="settings-section" id="section-layout">
+          <h2 class="section-title">レイアウト</h2>
+          <p class="section-desc">表示するウィジェットと配置カラムを設定します。</p>
+          <div class="add-form">
+            <h3 style="font-size:14px;color:var(--text-heading);margin-bottom:8px">ウィジェット配置</h3>
+            <p class="section-desc">ウィジェットをドラッグして列を変更、トグルで表示/非表示を切り替えます。</p>
+            <div class="layout-dnd-container" id="layout-dnd-container">
+              <div class="layout-col-zone">
+                <div class="layout-col-label">左</div>
+                <div class="layout-drop-area" data-zone="left" id="zone-left"></div>
               </div>
-              <div class="form-group">
-                <label for="engine-url">検索URL</label>
-                <input type="text" id="engine-url" placeholder="例: https://search.yahoo.co.jp/search?p=%s">
-                <span class="form-hint">%s の箇所に検索語が入ります</span>
+              <div class="layout-resize-handle" data-handle-idx="0"></div>
+              <div class="layout-col-zone">
+                <div class="layout-col-label">中央</div>
+                <div class="layout-drop-area" data-zone="center" id="zone-center"></div>
+              </div>
+              <div class="layout-resize-handle" data-handle-idx="1"></div>
+              <div class="layout-col-zone">
+                <div class="layout-col-label">右</div>
+                <div class="layout-drop-area" data-zone="right" id="zone-right"></div>
               </div>
             </div>
-            <button type="button" class="btn btn-add" id="add-engine-btn">追加</button>
+            <p class="section-desc" style="margin-top:8px">境界線をドラッグしてカラム幅を調整。</p>
+            <div class="layout-hidden-tray">
+              <div class="layout-col-label" style="margin-bottom:6px">非表示</div>
+              <div class="layout-drop-area layout-drop-area--hidden" data-zone="hidden" id="zone-hidden"></div>
+            </div>
           </div>
         </div>
         <!-- テーマ -->
@@ -160,6 +233,25 @@
           <h2 class="section-title">テーマ</h2>
           <p class="section-desc">New Tabと設定画面の配色テーマを選択します。</p>
           <div class="theme-grid" id="theme-grid"></div>
+        </div>
+        <!-- 設定の出力 -->
+        <div class="settings-section" id="section-export">
+          <h2 class="section-title">設定の出力</h2>
+          <p class="section-desc">設定のバックアップと復元ができます。※Googleアカウント（OAuth）のトークンは除外されます。インポート後は再ログインが必要です。</p>
+          <div class="add-form">
+            <h3 style="font-size:14px;color:var(--text-heading);margin-bottom:12px">エクスポート</h3>
+            <p class="section-desc">現在の設定をJSONファイルとして保存します。</p>
+            <button type="button" class="btn btn-add" id="export-btn">設定をエクスポート</button>
+          </div>
+          <div class="add-form">
+            <h3 style="font-size:14px;color:var(--text-heading);margin-bottom:12px">インポート</h3>
+            <p class="section-desc">JSONファイルから設定を復元します。<strong>現在の設定は全て上書きされます。</strong></p>
+            <label class="btn btn-add" style="display:inline-block;cursor:pointer;">
+              ファイルを選択してインポート
+              <input type="file" id="import-file-input" accept=".json" style="display:none">
+            </label>
+            <div id="import-status" class="ical-status"></div>
+          </div>
         </div>
       </main>
     </div>
@@ -177,3 +269,4 @@
   <script src="js/options.js"></script>
 </body>
 </html>
+	

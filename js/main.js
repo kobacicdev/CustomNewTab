@@ -1,19 +1,60 @@
 document.addEventListener('DOMContentLoaded', function() {
-  // カレンダー + 予定リストは loadCalendarEmbed() 内で
-  // 1回のAPI呼び出しから同時描画（calendar.js に統合済み）
-  try { loadCalendarEmbed(); } catch(e) { console.error('Calendar init error:', e); }
-  try { loadFavorites(); } catch(e) { console.error('Favorites init error:', e); }
-  try { loadSearchArea(); } catch(e) { console.error('Search init error:', e); }
-  try { loadNews(); } catch(e) { console.error('News init error:', e); }
-
-  // 会議参加ボタン状態を即時 + 1分ごとに自動更新
-  try { updateMeetingButtons(); } catch(e) {}
-  setInterval(function() {
-    try { updateMeetingButtons(); } catch(e) { console.error('Meeting button update error:', e); }
-  }, 60000);
-
-  // 設定ボタン → options ページを新規タブで開く
+  loadCalendarEmbed();
+  loadFavorites();
+loadNews();
+  applyLayoutSettings();
   document.getElementById('settings-btn').addEventListener('click', function() {
-    window.open(chrome.runtime.getURL('options.html'), '_blank');
+    if (chrome.runtime.openOptionsPage) {
+      chrome.runtime.openOptionsPage();
+    } else {
+      window.open(chrome.runtime.getURL('options.html'));
+    }
   });
+  setInterval(updateMeetingButtons, 30000);
 });
+
+// v1.3: レイアウト設定適用
+function applyLayoutSettings() {
+  chrome.storage.sync.get(['widgetSettings', 'columnWidths'], function(data) {
+    var mainContent = document.getElementById('main-content');
+    if (!mainContent) return;
+    var defaults = [
+      { id: 'calendar', visible: true, column: 'left' },
+      { id: 'favorites', visible: true, column: 'center' },
+      { id: 'news', visible: true, column: 'right' }
+    ];
+    var settings = data.widgetSettings || defaults;
+    var colMap = {
+      left: document.getElementById('col-left'),
+      center: document.getElementById('col-center'),
+      right: document.getElementById('col-right')
+    };
+    settings.forEach(function(widget) {
+      var els = document.querySelectorAll('[data-widget="' + widget.id + '"]');
+      var targetCol = colMap[widget.column] || colMap.left;
+      els.forEach(function(el) {
+        if (!widget.visible) {
+          el.style.display = 'none';
+        } else {
+          el.style.display = '';
+          targetCol.appendChild(el);
+        }
+      });
+    });
+    // 空カラムを非表示にしてgridTemplateColumnsを再計算
+    var colIds = ['col-left', 'col-center', 'col-right'];
+    var widthParts = data.columnWidths ? data.columnWidths.split('-') : ['1', '1', '1'];
+    var visibleWidths = [];
+    colIds.forEach(function(colId, i) {
+      var col = document.getElementById(colId);
+      if (!col) return;
+      var hasContent = col.childElementCount > 0;
+      col.style.display = hasContent ? '' : 'none';
+      if (hasContent) visibleWidths.push(parseFloat(widthParts[i] || 1) + 'fr');
+    });
+    if (visibleWidths.length > 0) {
+      mainContent.style.gridTemplateColumns = visibleWidths.join(' ');
+    }
+  });
+}
+	

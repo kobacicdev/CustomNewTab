@@ -10,18 +10,18 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   });
   loadFavorites();
-  loadIcalUrl();
+  initCalendarSection(); // v1.3: OAuth + iCalハイブリッド管理
   loadNewsSource();
   loadThemeSettings();
-  loadSearchSettings();
+  loadWidgetSettings(); // v1.3: レイアウト設定読み込み
+  initEventAddToggle();
+  initExportImport();
   document.getElementById('add-fav-form').addEventListener('submit', handleAddFavorite);
-  document.getElementById('save-ical-url').addEventListener('click', saveIcalUrl);
-  document.getElementById('test-ical-url').addEventListener('click', testIcalUrl);
   document.getElementById('save-news-source').addEventListener('click', saveNewsSource);
   document.getElementById('news-source').addEventListener('change', function() {
     document.getElementById('custom-rss-group').style.display = this.value==='custom'?'':'none';
   });
-  document.getElementById('add-engine-btn').addEventListener('click', handleAddEngine);
+setupResizeHandles();
   document.addEventListener('keydown', function(e) {
     if(e.key==='Escape') { var o=document.getElementById('modal-overlay'); if(o.classList.contains('show'))o.classList.remove('show'); }
   });
@@ -29,11 +29,13 @@ document.addEventListener('DOMContentLoaded', function() {
 // ===== ユーティリティ =====
 function escapeHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function showStatus(msg){var el=document.getElementById('status-msg');el.textContent=msg;el.classList.add('show');setTimeout(function(){el.classList.remove('show');},2000);}
-function showModal(message,onConfirm){
+function showModal(message,onConfirm,confirmLabel){
   var overlay=document.getElementById('modal-overlay');
   document.getElementById('modal-message').textContent=message;
+  var conf=document.getElementById('modal-confirm');
+  conf.textContent=confirmLabel||'🗑️';
   overlay.classList.add('show');
-  var conf=document.getElementById('modal-confirm'),canc=document.getElementById('modal-cancel');
+  var canc=document.getElementById('modal-cancel');
   var cleanup=function(){overlay.classList.remove('show');conf.replaceWith(conf.cloneNode(true));canc.replaceWith(canc.cloneNode(true));};
   document.getElementById('modal-confirm').addEventListener('click',function(){cleanup();onConfirm();});
   document.getElementById('modal-cancel').addEventListener('click',cleanup);
@@ -240,26 +242,495 @@ function requestHostAccess(url,cb){
   try{var o=new URL(url).origin+'/*';}catch(e){cb(false);return;}
   chrome.permissions.request({origins:[o]},function(g){cb(!!g);});
 }
-// ===== iCal =====
-function loadIcalUrl(){chrome.storage.sync.get('icalUrl',function(data){if(data.icalUrl)document.getElementById('ical-url').value=data.icalUrl;});}
-function saveIcalUrl(){
-  var url=document.getElementById('ical-url').value.trim();
-  if(!url){chrome.storage.sync.set({icalUrl:''},function(){showStatus('iCal URLをクリアしました');});return;}
-  requestHostAccess(url,function(ok){
-    if(!ok){showStatus('URLへのアクセス権限が必要です');return;}
-    chrome.storage.sync.set({icalUrl:url},function(){showStatus('iCal URLを保存しました');});
+// ===== v1.3: Google Calendar OAuth + iCal URL ハイブリッド管理 =====
+const OPTIONS_CLIENT_ID = 'YOUR_CLIENT_ID.apps.googleusercontent.com';
+const OPTIONS_SCOPES    = 'https://www.googleapis.com/auth/calendar.readonly';
+const OPTIONS_REDIRECT  = 'https://' + chrome.runtime.id + '.chromiumapp.org/';
+const CAL_COLOR_PRESETS = ['#6c63ff', '#3d8bff', '#4caf50', '#f9c74f', '#e8853d', '#ff6b6b'];
+const ICAL_COLOR_PRESETS = ['#999999', '#6c63ff', '#3d8bff', '#4caf50', '#e8853d', '#ff6b6b'];
+
+function initCalendarSection() {
+  loadGcalAccounts();
+  document.getElementById('add-gcal-btn').addEventListener('click', handleAddGcalAccount);
+  document.getElementById('new-cal-color-presets').addEventListener('click', function(e) {
+    var dot = e.target.closest('.cal-preset-dot');
+    if (!dot) return;
+    this.querySelectorAll('.cal-preset-dot').forEach(function(d) { d.classList.remove('active'); });
+    dot.classList.add('active');
+  });
+  loadIcalUrls();
+  document.getElementById('add-ical-btn').addEventListener('click', handleAddIcalUrl);
+  document.getElementById('ical-color-presets').addEventListener('click', function(e) {
+    var dot = e.target.closest('.cal-preset-dot');
+    if (!dot) return;
+    this.querySelectorAll('.cal-preset-dot').forEach(function(d) { d.classList.remove('active'); });
+    dot.classList.add('active');
   });
 }
-function testIcalUrl(){
-  var url=document.getElementById('ical-url').value.trim(),status=document.getElementById('ical-status');
-  if(!url){status.textContent='URLを入力してください';return;}
-  requestHostAccess(url,function(ok){
-    if(!ok){status.textContent='❌ URLへのアクセス権限が必要です';return;}
-    status.textContent='テスト中...';
-    fetch(url).then(function(r){return r.text();}).then(function(text){
-      var count=(text.match(/BEGIN:VEVENT/g)||[]).length;
-      status.textContent='✅ 取得成功！'+count+'件のイベントが見つかりました';
-    }).catch(function(err){status.textContent='❌ 取得失敗：'+err.message;});
+
+// =============================================
+// OAuth アカウント管理
+// =============================================
+function loadGcalAccounts() {
+  chrome.storage.sync.get('gcalAccounts', function(data) {
+    renderGcalAccountList(data.gcalAccounts || []);
+  });
+}
+
+function saveGcalAccounts(accounts, cb) {
+  chrome.storage.sync.set({ gcalAccounts: accounts }, function() {
+    renderGcalAccountList(accounts);
+    if (cb) cb();
+  });
+}
+
+async function handleAddGcalAccount() {
+  var statusEl = document.getElementById('gcal-add-status');
+  var activeDot = document.querySelector('#new-cal-color-presets .cal-preset-dot.active');
+  var color = activeDot ? activeDot.getAttribute('data-color') : '#6c63ff';
+  var stored = await new Promise(function(res) { chrome.storage.sync.get('gcalAccounts', function(d) { res(d.gcalAccounts || []); }); });
+  if (stored.length >= 2) {
+    statusEl.textContent = '最大2アカウントまでです。既存アカウントを削除してから追加してください。';
+    return;
+  }
+  statusEl.textContent = '認証中...';
+  var authUrl = 'https://accounts.google.com/o/oauth2/auth?' +
+    'client_id=' + encodeURIComponent(OPTIONS_CLIENT_ID) +
+    '&redirect_uri=' + encodeURIComponent(OPTIONS_REDIRECT) +
+    '&response_type=token' +
+    '&scope=' + encodeURIComponent(OPTIONS_SCOPES);
+  chrome.identity.launchWebAuthFlow({ url: authUrl, interactive: true }, async function(redirectUrl) {
+    if (chrome.runtime.lastError || !redirectUrl) {
+      statusEl.textContent = '認証がキャンセルされました。';
+      return;
+    }
+    var params = new URLSearchParams(new URL(redirectUrl).hash.slice(1));
+    var token = params.get('access_token');
+    var expiresIn = parseInt(params.get('expires_in') || '3600');
+    if (!token) { statusEl.textContent = 'トークン取得に失敗しました。'; return; }
+    var profileRes = await fetch('https://www.googleapis.com/oauth2/v1/userinfo?alt=json', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    var profile = await profileRes.json();
+    var email = profile.email || 'unknown@gmail.com';
+    var existing = stored.find(function(a) { return a.email === email; });
+    if (existing) { statusEl.textContent = '「' + email + '」は既に登録されています。'; return; }
+    var accounts = stored.concat([{
+      email: email,
+      token: token,
+      expiresAt: Date.now() + expiresIn * 1000,
+      color: color
+    }]);
+    saveGcalAccounts(accounts, function() {
+      showStatus('「' + email + '」を追加しました');
+      statusEl.textContent = '';
+      document.querySelector('#new-cal-color-presets .cal-preset-dot.active').classList.remove('active');
+      document.querySelector('#new-cal-color-presets .cal-preset-dot[data-color="#6c63ff"]').classList.add('active');
+    });
+  });
+}
+
+function renderGcalAccountList(accounts) {
+  var container = document.getElementById('calendar-list');
+  if (accounts.length === 0) {
+    container.innerHTML = '<p class="empty-msg">アカウントが登録されていません</p>';
+    return;
+  }
+  var html = '';
+  accounts.forEach(function(account) {
+    var expiry = account.expiresAt ? new Date(account.expiresAt) : null;
+    var isExpired = expiry && expiry < new Date();
+    var statusLabel = isExpired
+      ? '<span style="font-size:11px;color:var(--danger)">トークン期限切れ（自動リフレッシュ対象）</span>'
+      : '<span style="font-size:11px;color:var(--text-secondary)">認証済み</span>';
+    html += '<div class="cal-item" data-email="' + escapeHtml(account.email) + '">';
+    html += '<span class="cal-color-dot" style="background:' + escapeHtml(account.color) + '"></span>';
+    html += '<div style="flex:1;min-width:0">';
+    html += '<div style="font-size:13px;color:var(--text-heading);font-weight:600">' + escapeHtml(account.email) + '</div>';
+    html += statusLabel;
+    html += '</div>';
+    html += '<div class="cal-item-actions">';
+    html += '<div class="cal-color-presets cal-item-presets" data-email="' + escapeHtml(account.email) + '">';
+    CAL_COLOR_PRESETS.forEach(function(pc) {
+      html += '<span class="cal-preset-dot' + (account.color===pc?' active':'') + '" data-color="' + pc + '" style="background:' + pc + '"></span>';
+    });
+    html += '</div>';
+    html += '<button class="btn btn-delete" data-del-email="' + escapeHtml(account.email) + '">×</button>';
+    html += '</div></div>';
+  });
+  container.innerHTML = html;
+  container.querySelectorAll('.cal-item-presets').forEach(function(group) {
+    group.addEventListener('click', function(e) {
+      var dot = e.target.closest('.cal-preset-dot');
+      if (!dot) return;
+      var email = this.getAttribute('data-email');
+      chrome.storage.sync.get('gcalAccounts', function(data) {
+        var accs = data.gcalAccounts || [];
+        var acc = accs.find(function(a) { return a.email === email; });
+        if (acc) {
+          acc.color = dot.getAttribute('data-color');
+          saveGcalAccounts(accs, function() { showStatus('カラーを変更しました'); });
+        }
+      });
+    });
+  });
+  container.querySelectorAll('[data-del-email]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var email = this.getAttribute('data-del-email');
+      showModal('「' + email + '」を削除しますか？\nトークンも削除されます。', function() {
+        chrome.storage.sync.get('gcalAccounts', function(data) {
+          var accs = (data.gcalAccounts || []).filter(function(a) { return a.email !== email; });
+          saveGcalAccounts(accs, function() { showStatus('アカウントを削除しました'); });
+        });
+      });
+    });
+  });
+}
+
+// =============================================
+// iCal URL 管理
+// =============================================
+function loadIcalUrls() {
+  chrome.storage.sync.get('icalUrls', function(data) {
+    renderIcalUrlList(data.icalUrls || []);
+  });
+}
+
+function saveIcalUrls(urls, cb) {
+  chrome.storage.sync.set({ icalUrls: urls }, function() {
+    renderIcalUrlList(urls);
+    if (cb) cb();
+  });
+}
+
+function handleAddIcalUrl() {
+  var statusEl = document.getElementById('ical-add-status');
+  var nameInput = document.getElementById('ical-name-input');
+  var urlInput = document.getElementById('ical-url-input');
+  var activeDot = document.querySelector('#ical-color-presets .cal-preset-dot.active');
+  var name = nameInput.value.trim();
+  var url = urlInput.value.trim();
+  var color = activeDot ? activeDot.getAttribute('data-color') : '#999999';
+  if (!name) { statusEl.textContent = 'カレンダー名を入力してください。'; return; }
+  if (!url) { statusEl.textContent = 'iCal URLを入力してください。'; return; }
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    statusEl.textContent = 'URLはhttp://またはhttps://で始まる必要があります。'; return;
+  }
+  chrome.storage.sync.get('icalUrls', function(data) {
+    var urls = data.icalUrls || [];
+    var dup = urls.find(function(u) { return u.url === url; });
+    if (dup) { statusEl.textContent = 'このURLは既に登録されています。'; return; }
+    urls.push({
+      id: Date.now().toString(36),
+      name: name,
+      url: url,
+      color: color
+    });
+    saveIcalUrls(urls, function() {
+      showStatus('「' + name + '」を追加しました');
+      nameInput.value = '';
+      urlInput.value = '';
+      statusEl.textContent = '';
+    });
+  });
+}
+
+function renderIcalUrlList(urls) {
+  var container = document.getElementById('ical-list');
+  if (urls.length === 0) {
+    container.innerHTML = '<p class="empty-msg">iCal URLが登録されていません</p>';
+    return;
+  }
+  var html = '';
+  urls.forEach(function(ical) {
+    html += '<div class="cal-item" data-ical-id="' + escapeHtml(ical.id) + '">';
+    html += '<span class="cal-color-dot" style="background:' + escapeHtml(ical.color) + '"></span>';
+    html += '<div style="flex:1;min-width:0">';
+    html += '<div style="font-size:13px;color:var(--text-heading);font-weight:600">' + escapeHtml(ical.name) + '</div>';
+    html += '<div style="font-size:11px;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(ical.url) + '</div>';
+    html += '</div>';
+    html += '<div class="cal-item-actions">';
+    html += '<div class="cal-color-presets ical-item-presets" data-ical-id="' + escapeHtml(ical.id) + '">';
+    ICAL_COLOR_PRESETS.forEach(function(pc) {
+      html += '<span class="cal-preset-dot' + (ical.color===pc?' active':'') + '" data-color="' + pc + '" style="background:' + pc + '"></span>';
+    });
+    html += '</div>';
+    html += '<button class="btn btn-delete" data-del-ical="' + escapeHtml(ical.id) + '">×</button>';
+    html += '</div></div>';
+  });
+  container.innerHTML = html;
+  container.querySelectorAll('.ical-item-presets').forEach(function(group) {
+    group.addEventListener('click', function(e) {
+      var dot = e.target.closest('.cal-preset-dot');
+      if (!dot) return;
+      var id = this.getAttribute('data-ical-id');
+      chrome.storage.sync.get('icalUrls', function(data) {
+        var urls = data.icalUrls || [];
+        var item = urls.find(function(u) { return u.id === id; });
+        if (item) {
+          item.color = dot.getAttribute('data-color');
+          saveIcalUrls(urls, function() { showStatus('カラーを変更しました'); });
+        }
+      });
+    });
+  });
+  container.querySelectorAll('[data-del-ical]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var id = this.getAttribute('data-del-ical');
+      chrome.storage.sync.get('icalUrls', function(data) {
+        var urls = data.icalUrls || [];
+        var target = urls.find(function(u) { return u.id === id; });
+        var name = target ? target.name : 'iCal';
+        showModal('「' + name + '」を削除しますか？', function() {
+          var filtered = urls.filter(function(u) { return u.id !== id; });
+          saveIcalUrls(filtered, function() { showStatus('iCalを削除しました'); });
+        });
+      });
+    });
+  });
+}
+function loadCalendars() {
+  chrome.storage.sync.get(['icalUrl', 'icalUrls'], function(data) {
+    if (data.icalUrls && data.icalUrls.length > 0) {
+      calendars = data.icalUrls;
+    } else if (data.icalUrl) {
+      // 後方互換: 単一URLからの移行
+      calendars = [{id:'default', name:'メイン', url:data.icalUrl, color:'#6c63ff', enabled:true}];
+      chrome.storage.sync.set({icalUrls: calendars});
+    } else {
+      calendars = [];
+    }
+    renderCalendarList();
+  });
+}
+function saveCalendars(cb) {
+  chrome.storage.sync.set({icalUrls: calendars}, function() {
+    renderCalendarList();
+    if (cb) cb();
+  });
+}
+function renderCalendarList() {
+  var container = document.getElementById('calendar-list');
+  if (calendars.length === 0) {
+    container.innerHTML = '<p class="empty-msg">カレンダーがまだ登録されていません</p>';
+    return;
+  }
+  var html = '';
+  calendars.forEach(function(cal) {
+    var domain = ''; try { domain = new URL(cal.url).hostname; } catch(e) {}
+    var toggleClass = 'toggle-switch' + (cal.enabled ? ' active' : '');
+    html += '<div class="cal-item" data-cal-id="' + escapeHtml(cal.id) + '">';
+    html += '<span class="cal-color-dot" style="background:' + escapeHtml(cal.color) + '"></span>';
+    html += '<span class="cal-item-name">' + escapeHtml(cal.name) + '</span>';
+    html += '<span class="cal-item-url" title="' + escapeHtml(cal.url) + '">' + escapeHtml(domain) + '</span>';
+    html += '<div class="cal-item-actions">';
+    html += '<div class="cal-color-presets cal-item-presets" data-cal-id="' + escapeHtml(cal.id) + '">';
+    CAL_COLOR_PRESETS.forEach(function(pc) { html += '<span class="cal-preset-dot' + (cal.color === pc ? ' active' : '') + '" data-color="' + pc + '" style="background:' + pc + '"></span>'; });
+    html += '</div>';
+    html += '<div class="' + toggleClass + '" data-cal-id="' + escapeHtml(cal.id) + '"></div>';
+    html += '<button class="btn btn-delete" data-del-cal="' + escapeHtml(cal.id) + '">×</button>';
+    html += '</div></div>';
+  });
+  container.innerHTML = html;
+  // トグル
+  container.querySelectorAll('.toggle-switch').forEach(function(toggle) {
+    toggle.addEventListener('click', function() {
+      var id = this.getAttribute('data-cal-id');
+      var cal = calendars.find(function(c) { return c.id === id; });
+      if (cal) { cal.enabled = !cal.enabled; saveCalendars(function(){ showStatus('カレンダーを更新しました'); }); }
+    });
+  });
+  // カラー変更（プリセット）
+  container.querySelectorAll('.cal-item-presets').forEach(function(presetGroup) {
+    presetGroup.addEventListener('click', function(e) {
+      var dot = e.target.closest('.cal-preset-dot');
+      if (!dot) return;
+      var id = this.getAttribute('data-cal-id');
+      var cal = calendars.find(function(c) { return c.id === id; });
+      if (cal) {
+        cal.color = dot.getAttribute('data-color');
+        saveCalendars(function(){ showStatus('カラーを変更しました'); });
+      }
+    });
+  });
+  // 削除
+  container.querySelectorAll('[data-del-cal]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var id = this.getAttribute('data-del-cal');
+      var cal = calendars.find(function(c) { return c.id === id; });
+      if (!cal) return;
+      showModal('カレンダー「' + cal.name + '」を削除しますか？', function() {
+        calendars = calendars.filter(function(c) { return c.id !== id; });
+        saveCalendars(function(){ showStatus('カレンダーを削除しました'); });
+      });
+    });
+  });
+}
+function handleAddCalendar() {
+  var name = document.getElementById('new-cal-name').value.trim();
+  var url = document.getElementById('new-cal-url').value.trim();
+  var activeDot = document.querySelector('#new-cal-color-presets .cal-preset-dot.active');
+  var color = activeDot ? activeDot.getAttribute('data-color') : '#6c63ff';
+  if (!name || !url) { showStatus('カレンダー名とiCal URLを入力してください'); return; }
+  requestHostAccess(url, function(ok) {
+    if (!ok) { showStatus('URLへのアクセス権限が必要です'); return; }
+    calendars.push({
+      id: 'cal-' + Date.now(),
+      name: name,
+      url: url,
+      color: color,
+      enabled: true
+    });
+    saveCalendars(function() {
+      showStatus('「' + name + '」を追加しました');
+      document.getElementById('new-cal-name').value = '';
+      document.getElementById('new-cal-url').value = '';
+      document.getElementById('new-cal-color-presets').querySelectorAll('.cal-preset-dot').forEach(function(d, i) { d.classList.toggle('active', i === 0); });
+    });
+  });
+}
+// ===== v1.3: レイアウト設定 =====
+var DEFAULT_WIDGETS = [
+  { id: 'calendar', label: 'カレンダー', visible: true, column: 'left' },
+  { id: 'favorites', label: 'お気に入り', visible: true, column: 'center' },
+  { id: 'news', label: 'ニュース', visible: true, column: 'right' }
+];
+var widgetSettings = [];
+function loadWidgetSettings() {
+  chrome.storage.sync.get(['widgetSettings', 'columnWidths'], function(data) {
+    widgetSettings = data.widgetSettings || DEFAULT_WIDGETS.map(function(w) { return Object.assign({}, w); });
+    renderWidgetTable();
+    applyZoneWidths(data.columnWidths || '1-1-1');
+  });
+}
+function renderWidgetTable() {
+  var zones = {
+    left: document.getElementById('zone-left'),
+    center: document.getElementById('zone-center'),
+    right: document.getElementById('zone-right'),
+    hidden: document.getElementById('zone-hidden')
+  };
+  if (!zones.left) return;
+  Object.values(zones).forEach(function(z) { if (z) z.innerHTML = ''; });
+  widgetSettings.forEach(function(widget) {
+    var card = document.createElement('div');
+    card.className = 'layout-widget-card';
+    card.draggable = true;
+    card.setAttribute('data-widget-id', widget.id);
+    card.innerHTML =
+      '<span class="layout-drag-handle">⠿</span>' +
+      '<span class="layout-widget-name">' + escapeHtml(widget.label) + '</span>' +
+      '<div class="toggle-switch' + (widget.visible ? ' active' : '') + '" data-widget-id="' + widget.id + '"></div>';
+    var zone = widget.visible ? (zones[widget.column] || zones.left) : zones.hidden;
+    if (zone) zone.appendChild(card);
+  });
+  setupLayoutDnD(zones);
+  document.querySelectorAll('#section-layout .toggle-switch').forEach(function(toggle) {
+    toggle.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var id = this.getAttribute('data-widget-id');
+      var w = widgetSettings.find(function(w) { return w.id === id; });
+      if (w) {
+        w.visible = !w.visible;
+        chrome.storage.sync.set({ widgetSettings: widgetSettings }, function() {
+          renderWidgetTable();
+          showStatus('表示設定を更新しました');
+        });
+      }
+    });
+  });
+}
+function applyZoneWidths(value) {
+  var parts = (value || '1-1-1').split('-');
+  document.querySelectorAll('.layout-col-zone').forEach(function(zone, i) {
+    zone.style.flex = parts[i] || '1';
+  });
+}
+function setupResizeHandles() {
+  var container = document.getElementById('layout-dnd-container');
+  if (!container) return;
+  document.querySelectorAll('.layout-resize-handle').forEach(function(handle) {
+    handle.addEventListener('mousedown', function(e) {
+      e.preventDefault();
+      var handleIdx = parseInt(this.getAttribute('data-handle-idx'));
+      var cols = Array.from(document.querySelectorAll('.layout-col-zone'));
+      var startX = e.clientX;
+      var containerWidth = container.getBoundingClientRect().width;
+      var available = containerWidth - 12 * (cols.length + 1);
+      var initialFlexes = cols.map(function(col) { return parseFloat(col.style.flex) || 1; });
+      var totalFlex = initialFlexes.reduce(function(a, b) { return a + b; }, 0);
+      var initialPx = initialFlexes.map(function(f) { return (f / totalFlex) * available; });
+      document.body.style.cursor = 'col-resize';
+      function onMouseMove(e) {
+        var dx = e.clientX - startX;
+        var newPx = initialPx.slice();
+        newPx[handleIdx] = Math.max(60, initialPx[handleIdx] + dx);
+        newPx[handleIdx + 1] = Math.max(60, initialPx[handleIdx + 1] - dx);
+        var newTotal = newPx.reduce(function(a, b) { return a + b; }, 0);
+        cols.forEach(function(col, i) { col.style.flex = (newPx[i] / newTotal * totalFlex).toFixed(2); });
+      }
+      function onMouseUp() {
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+        document.body.style.cursor = '';
+        var finalFlexes = cols.map(function(col) { return parseFloat(col.style.flex) || 1; });
+        var minFlex = Math.min.apply(null, finalFlexes);
+        var normalized = finalFlexes.map(function(f) { return (f / minFlex).toFixed(2); });
+        chrome.storage.sync.set({ columnWidths: normalized.join('-') }, function() { showStatus('カラム幅を保存しました'); });
+      }
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    });
+  });
+}
+function setupLayoutDnD(zones) {
+  var draggedCard = null;
+  document.querySelectorAll('.layout-widget-card').forEach(function(card) {
+    card.addEventListener('dragstart', function(e) {
+      draggedCard = this;
+      this.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    card.addEventListener('dragend', function() {
+      this.classList.remove('dragging');
+      Object.values(zones).forEach(function(z) { z.classList.remove('drag-over'); });
+    });
+  });
+  Object.entries(zones).forEach(function(entry) {
+    var zoneName = entry[0], zoneEl = entry[1];
+    zoneEl.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      this.classList.add('drag-over');
+    });
+    zoneEl.addEventListener('dragleave', function() {
+      this.classList.remove('drag-over');
+    });
+    zoneEl.addEventListener('drop', function(e) {
+      e.preventDefault();
+      this.classList.remove('drag-over');
+      if (!draggedCard) return;
+      var id = draggedCard.getAttribute('data-widget-id');
+      var w = widgetSettings.find(function(w) { return w.id === id; });
+      if (w) {
+        var changed = false;
+        if (zoneName === 'hidden') {
+          if (w.visible) { w.visible = false; changed = true; }
+        } else {
+          if (!w.visible || w.column !== zoneName) {
+            w.visible = true;
+            w.column = zoneName;
+            changed = true;
+          }
+        }
+        if (changed) {
+          chrome.storage.sync.set({ widgetSettings: widgetSettings }, function() {
+            renderWidgetTable();
+            showStatus('配置を更新しました');
+          });
+        }
+      }
+      draggedCard = null;
+    });
   });
 }
 // ===== ニュース =====
@@ -314,98 +785,86 @@ function renderThemeGrid(current){
     });
   });
 }
-// ===== 検索エンジン設定 =====
-var MAX_ENABLED=4;
-var SEARCH_PRESETS=[
-  {id:'google',name:'Google',url:'https://www.google.com/search?q=%s',icon:'https://www.google.com/favicon.ico',enabled:true,preset:true},
-  {id:'perplexity',name:'Perplexity',url:'https://www.perplexity.ai/search?q=%s',icon:'https://www.google.com/s2/favicons?sz=64&domain=perplexity.ai',enabled:true,preset:true},
-  {id:'amazon',name:'Amazon',url:'https://www.amazon.co.jp/s?k=%s',icon:'https://www.google.com/s2/favicons?sz=64&domain=amazon.co.jp',enabled:false,preset:true},
-  {id:'youtube',name:'YouTube',url:'https://www.youtube.com/results?search_query=%s',icon:'https://www.google.com/s2/favicons?sz=64&domain=youtube.com',enabled:false,preset:true},
-  {id:'chatgpt',name:'ChatGPT',url:'https://chatgpt.com/?q=%s',icon:'https://www.google.com/s2/favicons?sz=64&domain=chatgpt.com',enabled:false,preset:true}
-];
-var searchEngines=[];
-function loadSearchSettings(){
-  chrome.storage.sync.get('searchEngines',function(data){
-    searchEngines=data.searchEngines||SEARCH_PRESETS.map(function(p){return Object.assign({},p);});
-    renderSearchEngineList();renderSearchPreview();
+// ===== v1.3: 設定エクスポート・インポート =====
+function initExportImport() {
+  document.getElementById('export-btn').addEventListener('click', handleExport);
+  document.getElementById('import-file-input').addEventListener('change', handleImport);
+}
+
+function handleExport() {
+  var exportKeys = [
+    'favorites', 'storedSections',
+    'theme',
+    'newsSource', 'customRssUrl',
+    'icalUrls',
+    'widgetSettings', 'columnWidths',
+    'eventFilterMode',
+    'enableEventAdd'
+  ];
+  chrome.storage.sync.get(exportKeys, function(data) {
+    if (data.gcalAccounts) {
+      data.gcalAccounts = data.gcalAccounts.map(function(a) {
+        return { email: a.email, color: a.color };
+      });
+    }
+    var exportData = {
+      version: '1.3',
+      exportedAt: new Date().toISOString(),
+      data: data
+    };
+    var blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    var dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    a.download = 'custom-newtab-settings-' + dateStr + '.json';
+    a.click();
+    URL.revokeObjectURL(url);
+    showStatus('エクスポートしました');
   });
 }
-function saveSearchEngines(cb){chrome.storage.sync.set({searchEngines:searchEngines},function(){renderSearchPreview();if(cb)cb();});}
-function getEnabledCount(){return searchEngines.filter(function(e){return e.enabled;}).length;}
-function renderSearchEngineList(){
-  var container=document.getElementById('search-engine-list'),cnt=getEnabledCount();
-  document.getElementById('engine-enabled-count').textContent=cnt+' / '+MAX_ENABLED+' 有効';
-  var html='';
-  searchEngines.forEach(function(engine){
-    var tA=engine.enabled?' active':'',tD=(!engine.enabled&&cnt>=MAX_ENABLED)?' disabled':'';
-    html+='<div class="engine-row" draggable="true" data-engine-id="'+engine.id+'">';
-    html+='<span class="engine-drag">⠿</span>';
-    html+='<img class="engine-icon" src="'+escapeHtml(engine.icon)+'" alt="" onerror="this.style.display=\'none\'">';
-    html+='<span class="engine-name">'+escapeHtml(engine.name)+'</span>';
-    html+='<div class="engine-actions"><div class="toggle-switch'+tA+tD+'" data-engine-id="'+engine.id+'"></div>';
-    if(!engine.preset)html+='<button class="btn btn-delete" data-del-engine="'+engine.id+'">🗑️</button>';
-    html+='</div></div>';
+
+function handleImport(e) {
+  var file = e.target.files[0];
+  if (!file) return;
+  var statusEl = document.getElementById('import-status');
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    var parsed;
+    try {
+      parsed = JSON.parse(ev.target.result);
+    } catch (err) {
+      statusEl.textContent = '❌ ファイルの読み込みに失敗しました（不正なJSON）';
+      return;
+    }
+    if (!parsed.version || !parsed.data) {
+      statusEl.textContent = '❌ 対応していないファイル形式です';
+      return;
+    }
+    showModal('現在の設定を全て上書きします。よろしいですか？', function() {
+      chrome.storage.sync.set(parsed.data, function() {
+        statusEl.textContent = '✅ インポート完了。設定を反映しました。';
+        showStatus('インポートしました');
+        setTimeout(function() { location.reload(); }, 1000);
+      });
+    }, '上書き');
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+}
+
+// ===== v1.3: 予定追加機能ON/OFF =====
+function initEventAddToggle() {
+  var toggle = document.getElementById('toggle-event-add');
+  if (!toggle) return;
+  chrome.storage.sync.get('enableEventAdd', function(data) {
+    if (data.enableEventAdd) toggle.classList.add('active');
   });
-  container.innerHTML=html;
-  container.querySelectorAll('.toggle-switch').forEach(function(toggle){
-    toggle.addEventListener('click',function(){
-      if(this.classList.contains('disabled'))return;
-      var id=this.getAttribute('data-engine-id');
-      var engine=searchEngines.find(function(e){return e.id===id;});if(!engine)return;
-      engine.enabled=!engine.enabled;
-      saveSearchEngines(function(){renderSearchEngineList();});
+  toggle.addEventListener('click', function() {
+    var isActive = this.classList.toggle('active');
+    chrome.storage.sync.set({ enableEventAdd: isActive }, function() {
+      showStatus(isActive ? '予定追加機能を有効にしました' : '予定追加機能を無効にしました');
     });
   });
-  container.querySelectorAll('[data-del-engine]').forEach(function(btn){
-    btn.addEventListener('click',function(){
-      var id=this.getAttribute('data-del-engine');
-      searchEngines=searchEngines.filter(function(e){return e.id!==id;});
-      saveSearchEngines(function(){renderSearchEngineList();showStatus('検索エンジンを削除しました');});
-    });
-  });
-  setupEngineDnD(container);
 }
-function setupEngineDnD(container){
-  var draggedRow=null;
-  container.querySelectorAll('.engine-row').forEach(function(row){
-    row.addEventListener('dragstart',function(e){draggedRow=this;this.classList.add('dragging');e.dataTransfer.effectAllowed='move';});
-    row.addEventListener('dragover',function(e){
-      e.preventDefault();if(this===draggedRow)return;
-      container.querySelectorAll('.engine-row').forEach(function(r){r.classList.remove('drag-over-above','drag-over-below');});
-      var rect=this.getBoundingClientRect();this.classList.add(e.clientY<rect.top+rect.height/2?'drag-over-above':'drag-over-below');
-    });
-    row.addEventListener('dragleave',function(){this.classList.remove('drag-over-above','drag-over-below');});
-    row.addEventListener('drop',function(e){
-      e.preventDefault();
-      container.querySelectorAll('.engine-row').forEach(function(r){r.classList.remove('drag-over-above','drag-over-below');});
-      if(!draggedRow||this===draggedRow)return;
-      var fromId=draggedRow.getAttribute('data-engine-id'),toId=this.getAttribute('data-engine-id');
-      var above=e.clientY<this.getBoundingClientRect().top+this.getBoundingClientRect().height/2;
-      var fromIdx=searchEngines.findIndex(function(e){return e.id===fromId;});
-      var item=searchEngines.splice(fromIdx,1)[0];
-      var toIdx=searchEngines.findIndex(function(e){return e.id===toId;});if(!above)toIdx++;
-      searchEngines.splice(toIdx,0,item);
-      saveSearchEngines(function(){renderSearchEngineList();});
-    });
-    row.addEventListener('dragend',function(){this.classList.remove('dragging');container.querySelectorAll('.engine-row').forEach(function(r){r.classList.remove('drag-over-above','drag-over-below');});});
-  });
-}
-function renderSearchPreview(){
-  var area=document.getElementById('search-preview-area');
-  var enabled=searchEngines.filter(function(e){return e.enabled;});
-  if(enabled.length===0){area.innerHTML='<p class="empty-msg">検索バーは非表示です</p>';area.removeAttribute('data-count');return;}
-  area.setAttribute('data-count',enabled.length);
-  var html='';
-  enabled.forEach(function(engine){
-    html+='<div class="preview-search-box"><img src="'+escapeHtml(engine.icon)+'" alt="" class="preview-icon" onerror="this.style.display=\'none\'"><span class="preview-placeholder">'+escapeHtml(engine.name)+' で検索...</span></div>';
-  });
-  area.innerHTML=html;
-}
-function handleAddEngine(){
-  var name=document.getElementById('engine-name').value.trim(),url=document.getElementById('engine-url').value.trim();
-  if(!name||!url){showStatus('名前とURLを入力してください');return;}
-  if(url.indexOf('%s')===-1){showStatus('URLに %s を含めてください');return;}
-  var domain='';try{domain=new URL(url.replace('%s','test')).hostname;}catch(e){}
-  searchEngines.push({id:'custom-'+Date.now(),name:name,url:url,icon:domain?'https://www.google.com/s2/favicons?sz=64&domain='+domain:'',enabled:false,preset:false});
-  saveSearchEngines(function(){renderSearchEngineList();showStatus('「'+name+'」を追加しました');document.getElementById('engine-name').value='';document.getElementById('engine-url').value='';});
-}
+	

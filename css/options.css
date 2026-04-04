@@ -135,7 +135,7 @@ body { font-family:'Segoe UI','Noto Sans JP',sans-serif; background: var(--bg-gr
 .fav-list-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
 .fav-list-header h3 { font-size:14px; color: var(--text-heading); }
 .fav-count { font-size:12px; color: var(--text-muted); }
-.favorites-list { display:flex; flex-direction:column; gap:2px; }
+.favorites-list { display:flex; flex-direction:column; gap:2px; max-width:440px; }
 .fav-category-group { margin-bottom:12px; }
 .fav-category-title { display:flex; align-items:center; gap:8px; padding:8px 12px; background: var(--hover-bg); border-radius:8px; margin-bottom:4px; cursor:grab; }
 .fav-category-title:active { cursor:grabbing; }
@@ -156,7 +156,7 @@ body { font-family:'Segoe UI','Noto Sans JP',sans-serif; background: var(--bg-gr
 .fav-row.editing .fav-row-actions { opacity:1; }
 .fav-row.editing .fav-row-info { gap:4px; }
 .fav-row.editing .inline-edit-input { width:100%; }
-.inline-edit-input { background: var(--input-bg); border:1px solid var(--input-focus-border); border-radius:6px; padding:4px 8px; color: var(--text-heading); font-size:13px; outline:none; width:100%; }
+.inline-edit-input { background: var(--input-bg); border:1px solid var(--input-focus-border); border-radius:6px; padding:6px 10px; color: var(--text-heading); font-size:13px; outline:none; width:100%; }
 .inline-select { background: var(--input-bg); border:1px solid var(--input-border); border-radius:8px; padding:9px 12px; color: var(--text-heading); font-size:13px; outline:none; min-width:240px; cursor:pointer; }
 .inline-select:focus { border-color: var(--input-focus-border); }
 .inline-select option { color: var(--text-heading); background-color: var(--option-bg); }
@@ -186,19 +186,6 @@ body { font-family:'Segoe UI','Noto Sans JP',sans-serif; background: var(--bg-gr
 .empty-msg { color: var(--text-muted); font-size:13px; }
 .btn-inline-cancel { background: var(--input-bg); color: var(--text-secondary); padding:9px 14px; font-size:12px; border:none; border-radius:8px; cursor:pointer; }
 .btn-inline-cancel:hover { background: var(--hover-bg); color: var(--text-heading); }
-/* ===== 検索エンジン管理 ===== */
-.engine-list-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
-.engine-list-header h3 { font-size:14px; color: var(--text-heading); }
-.engine-enabled-count { font-size:12px; color: var(--text-secondary); }
-.engine-list { display:flex; flex-direction:column; gap:2px; }
-.engine-row { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:8px; transition:background 0.15s; border:2px solid transparent; }
-.engine-row:hover { background: var(--hover-bg); }
-.engine-row[draggable="true"] { cursor:grab; }
-.engine-row[draggable="true"]:active { cursor:grabbing; }
-.engine-drag { color: var(--text-muted); font-size:16px; cursor:grab; user-select:none; }
-.engine-icon { width:20px; height:20px; border-radius:4px; }
-.engine-name { font-size:13px; color: var(--text-primary); flex:1; }
-.engine-actions { display:flex; align-items:center; gap:10px; }
 .toggle-switch { position:relative; width:44px; height:24px; background: var(--input-bg); border:1px solid var(--input-border); border-radius:12px; cursor:pointer; transition:all 0.3s; flex-shrink:0; }
 .toggle-switch::after { content:''; position:absolute; top:2px; left:2px; width:18px; height:18px; background: var(--text-muted); border-radius:50%; transition:all 0.3s; }
 .toggle-switch.active { background: var(--accent); border-color: var(--accent); }
@@ -214,13 +201,41 @@ body { font-family:'Segoe UI','Noto Sans JP',sans-serif; background: var(--bg-gr
 .tp-card { flex:1; height:28px; border-radius:4px; background:rgba(255,255,255,0.1); }
 .theme-card-name { display:block; text-align:center; font-size:12px; color: var(--text-secondary); margin-top:6px; font-weight:600; }
 .theme-card.active .theme-card-name { color: var(--accent); }
-/* ===== 検索プレビュー ===== */
-.search-preview-wrapper { margin-bottom:20px; }
-.search-preview-wrapper h3 { font-size:14px; color: var(--text-heading); margin-bottom:12px; }
-.search-preview-area { display:flex; gap:12px; justify-content:center; padding:20px; background: var(--card-bg); border:1px solid var(--card-border); border-radius:12px; min-height:60px; align-items:center; }
-.search-preview-area .empty-msg { text-align:center; }
-.search-preview-area[data-count="3"] .preview-search-box { max-width:200px; }
-.search-preview-area[data-count="4"] .preview-search-box { max-width:160px; }
-.preview-search-box { display:flex; align-items:center; gap:6px; background: var(--input-bg); border:1px solid var(--input-border); border-radius:20px; padding:6px 14px; flex:1; max-width:280px; }
-.preview-icon { width:14px; height:14px; border-radius:2px; }
-.preview-placeholder { font-size:11px; color: var(--text-placeholder); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+/* ===== v1.3: 複数カレンダー管理UI ===== */
+.cal-list-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+.cal-list-header h3 { font-size:14px; color: var(--text-heading); }
+.calendar-list { display:flex; flex-direction:column; gap:2px; margin-bottom:16px; }
+.cal-item { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:8px; transition:background 0.15s; border:2px solid transparent; }
+.cal-item:hover { background: var(--hover-bg); }
+.cal-color-dot { width:12px; height:12px; border-radius:50%; flex-shrink:0; }
+.cal-item-name { font-size:13px; color: var(--text-primary); font-weight:600; min-width:80px; }
+.cal-item-url { font-size:11px; color: var(--text-muted); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
+.cal-item-actions { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+.cal-color-input { width:32px; height:32px; border:none; border-radius:6px; cursor:pointer; background:transparent; padding:0; }
+.cal-color-input::-webkit-color-swatch-wrapper { padding:2px; }
+.cal-color-input::-webkit-color-swatch { border:1px solid var(--input-border); border-radius:4px; }
+/* ===== v1.3: カレンダーカラープリセット ===== */
+.cal-color-presets { display:flex; gap:6px; align-items:center; padding:4px 0; }
+.cal-preset-dot { width:20px; height:20px; border-radius:50%; cursor:pointer; border:2px solid transparent; transition:all 0.2s; flex-shrink:0; }
+.cal-preset-dot:hover { transform:scale(1.15); }
+.cal-preset-dot.active { border-color:var(--text-heading); }
+.cal-item-presets .cal-preset-dot { width:14px; height:14px; border-width:1.5px; }
+/* ===== v1.3: カラム配置・レイアウト設定 ===== */
+.layout-dnd-container { display:flex; gap:12px; max-width:580px; }
+.layout-col-zone { flex:1; display:flex; flex-direction:column; gap:6px; }
+.layout-col-label { font-size:11px; font-weight:700; color: var(--text-secondary); text-align:center; text-transform:uppercase; letter-spacing:0.05em; padding-bottom:4px; border-bottom:2px solid var(--divider); }
+.layout-drop-area { min-height:64px; border-radius:8px; border:2px dashed var(--divider); padding:6px; display:flex; flex-direction:column; gap:6px; transition:border-color 0.15s, background 0.15s; }
+.layout-drop-area.drag-over { border-color: var(--accent); background: var(--accent-light); }
+.layout-widget-card { display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:6px; background: var(--card-bg); border:1px solid var(--card-border); cursor:grab; transition:opacity 0.15s, box-shadow 0.15s; min-width:0; overflow:hidden; }
+.layout-widget-card:hover { box-shadow:0 2px 8px rgba(0,0,0,0.15); }
+.layout-widget-card.dragging { opacity:0.4; cursor:grabbing; }
+.layout-widget-card.hidden-widget { opacity:0.5; }
+.layout-drag-handle { color: var(--text-muted); font-size:14px; cursor:grab; user-select:none; flex-shrink:0; }
+.layout-widget-name { font-size:13px; color: var(--text-heading); font-weight:600; flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
+.layout-resize-handle { width:12px; flex-shrink:0; cursor:col-resize; display:flex; align-items:center; justify-content:center; }
+.layout-resize-handle::after { content:''; width:3px; height:40px; background: var(--divider); border-radius:2px; transition:background 0.15s, height 0.15s; }
+.layout-resize-handle:hover::after { background: var(--accent); height:60px; }
+.layout-hidden-tray { max-width:580px; margin-top:16px; padding-top:12px; border-top:1px dashed var(--divider); }
+.layout-drop-area--hidden { border-color: var(--danger); background: var(--danger-bg); min-height:48px; }
+.layout-drop-area--hidden.drag-over { border-color: var(--danger); background: rgba(255,107,107,0.2); }
+	

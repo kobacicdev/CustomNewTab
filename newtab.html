@@ -9,25 +9,24 @@
 </head>
 <body>
   <div class="container">
-    <section class="search-area" id="search-area"></section>
-    <div class="main-content">
-      <div class="left-column">
-        <section class="card calendar-embed">
+<div class="main-content" id="main-content">
+      <div class="left-column" id="col-left">
+        <section class="card calendar-embed" data-widget="calendar">
           <div id="calendar-container"></div>
         </section>
-        <section class="card events-list">
+        <section class="card events-list" data-widget="calendar">
           <div id="events-container">
             <p class="loading">読み込み中...</p>
           </div>
         </section>
       </div>
-      <div class="center-column">
-        <section class="card favorites">
+      <div class="center-column" id="col-center">
+        <section class="card favorites" data-widget="favorites">
           <div id="favorites-container"></div>
         </section>
       </div>
-      <div class="right-column">
-        <section class="card news">
+      <div class="right-column" id="col-right">
+        <section class="card news" data-widget="news">
           <div id="news-container">
             <p class="loading">読み込み中...</p>
           </div>
@@ -35,11 +34,46 @@
       </div>
     </div>
   </div>
+  <!-- v1.3: 予定追加モーダル -->
+  <div class="event-modal-overlay" id="event-modal-overlay">
+    <div class="event-modal">
+      <h3 class="event-modal-title">予定を追加</h3>
+      <div class="event-modal-body">
+        <div class="event-modal-field">
+          <label for="event-title-input">タイトル</label>
+          <input type="text" id="event-title-input" placeholder="予定のタイトル">
+        </div>
+        <div class="event-modal-field">
+          <label for="event-date-input">日付</label>
+          <input type="date" id="event-date-input">
+        </div>
+        <div class="event-modal-row">
+          <div class="event-modal-field">
+            <label for="event-start-input">開始時刻</label>
+            <input type="time" id="event-start-input" value="09:00">
+          </div>
+          <div class="event-modal-field">
+            <label for="event-end-input">終了時刻</label>
+            <input type="time" id="event-end-input" value="10:00">
+          </div>
+        </div>
+        <div class="event-modal-field">
+          <label class="event-allday-label">
+            <input type="checkbox" id="event-allday-input"> 終日
+          </label>
+        </div>
+      </div>
+      <div class="event-modal-actions">
+        <button class="event-modal-btn cancel" id="event-modal-cancel">キャンセル</button>
+        <button class="event-modal-btn confirm" id="event-modal-save">追加</button>
+      </div>
+    </div>
+  </div>
   <button class="settings-btn" id="settings-btn" title="設定">⚙</button>
   <script src="js/calendar.js"></script>
   <script src="js/favorites.js"></script>
-  <script src="js/search.js"></script>
-  <script src="js/news.js"></script>
+<script src="js/news.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>
+	
