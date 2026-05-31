@@ -1,4 +1,7 @@
-document.addEventListener('DOMContentLoaded', function() {
+var optionsPanelInitialized = false;
+function initOptionsPanel() {
+  if (optionsPanelInitialized) return;
+  optionsPanelInitialized = true;
   var sidebarItems = document.querySelectorAll('.sidebar-item');
   var sections = document.querySelectorAll('.settings-section');
   sidebarItems.forEach(function(item) {
@@ -6,26 +9,50 @@ document.addEventListener('DOMContentLoaded', function() {
       sidebarItems.forEach(function(i){i.classList.remove('active');});
       sections.forEach(function(s){s.classList.remove('active');});
       this.classList.add('active');
-      document.getElementById('section-'+this.getAttribute('data-section')).classList.add('active');
+      var sec = this.getAttribute('data-section');
+      document.getElementById('section-' + sec).classList.add('active');
+      if (sec === 'layout') setTimeout(renderLayoutPreview, 0);
     });
   });
   loadFavorites();
-  initCalendarSection(); // v1.3: OAuth + iCalハイブリッド管理
+  initCalendarSection();
+  initDriveSection();
   loadNewsSource();
+  loadSearchSettings();
   loadThemeSettings();
-  loadWidgetSettings(); // v1.3: レイアウト設定読み込み
+  loadWidgetSettings();
   initEventAddToggle();
   initExportImport();
   document.getElementById('add-fav-form').addEventListener('submit', handleAddFavorite);
+  document.getElementById('pick-from-tabs-btn').addEventListener('click', toggleTabPicker);
   document.getElementById('save-news-source').addEventListener('click', saveNewsSource);
+  document.getElementById('add-engine-btn').addEventListener('click', handleAddEngine);
   document.getElementById('news-source').addEventListener('change', function() {
     document.getElementById('custom-rss-group').style.display = this.value==='custom'?'':'none';
   });
-setupResizeHandles();
-  document.addEventListener('keydown', function(e) {
-    if(e.key==='Escape') { var o=document.getElementById('modal-overlay'); if(o.classList.contains('show'))o.classList.remove('show'); }
+  setupResizeHandles();
+  document.querySelectorAll('.layout-col-count-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      columnCount = parseInt(this.getAttribute('data-count'));
+      updateColCountUI(columnCount);
+      chrome.storage.sync.set({ columnCount: columnCount }, function() {
+        showStatus(columnCount + '列レイアウトに変更しました');
+      });
+      renderLayoutPreview();
+    });
   });
-});
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      var modal = document.getElementById('modal-overlay');
+      var overlay = document.getElementById('settings-panel-overlay');
+      if (modal && modal.classList.contains('show')) {
+        modal.classList.remove('show');
+      } else if (overlay && overlay.classList.contains('show')) {
+        overlay.classList.remove('show');
+      }
+    }
+  });
+}
 // ===== ユーティリティ =====
 function escapeHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function showStatus(msg){var el=document.getElementById('status-msg');el.textContent=msg;el.classList.add('show');setTimeout(function(){el.classList.remove('show');},2000);}
@@ -127,6 +154,42 @@ function renderFavoritesList(){
   });
   setupFavDnD(container);
 }
+// ===== タブピッカー =====
+function toggleTabPicker() {
+  var picker = document.getElementById('tab-picker');
+  if (picker.style.display !== 'none') { picker.style.display = 'none'; return; }
+  picker.innerHTML = '<p class="loading">読み込み中...</p>';
+  picker.style.display = '';
+  chrome.tabs.query({}, function(tabs) {
+    var filtered = tabs.filter(function(t) {
+      return t.url && !t.url.startsWith('chrome://') && !t.url.startsWith('chrome-extension://');
+    });
+    if (filtered.length === 0) {
+      picker.innerHTML = '<p class="empty-msg" style="padding:12px">タブが見つかりません</p>';
+      return;
+    }
+    picker.innerHTML = filtered.map(function(tab) {
+      var favicon = tab.favIconUrl
+        ? '<img class="tab-favicon" src="' + escapeHtml(tab.favIconUrl) + '" onerror="this.style.display=\'none\'">'
+        : '<span class="tab-favicon">🌐</span>';
+      return '<div class="tab-item" data-title="' + escapeHtml(tab.title || '') + '" data-url="' + escapeHtml(tab.url || '') + '">' +
+        favicon +
+        '<div class="tab-info">' +
+          '<span class="tab-title">' + escapeHtml(tab.title || tab.url || '') + '</span>' +
+          '<span class="tab-url">' + escapeHtml(tab.url || '') + '</span>' +
+        '</div></div>';
+    }).join('');
+    picker.querySelectorAll('.tab-item').forEach(function(item) {
+      item.addEventListener('click', function() {
+        document.getElementById('fav-name').value = this.getAttribute('data-title');
+        document.getElementById('fav-url').value = this.getAttribute('data-url');
+        picker.style.display = 'none';
+        document.getElementById('fav-name').focus();
+      });
+    });
+  });
+}
+
 // ===== インライン編集 =====
 var isEditing=false;
 function editSite(id){
@@ -242,6 +305,123 @@ function requestHostAccess(url,cb){
   try{var o=new URL(url).origin+'/*';}catch(e){cb(false);return;}
   chrome.permissions.request({origins:[o]},function(g){cb(!!g);});
 }
+// ===== Googleドライブ =====
+const DRIVE_CLIENT_ID = 'YOUR_CLIENT_ID.apps.googleusercontent.com';
+const DRIVE_SCOPES   = 'https://www.googleapis.com/auth/drive.metadata.readonly';
+const DRIVE_REDIRECT = 'https://' + chrome.runtime.id + '.chromiumapp.org/';
+const DRIVE_COLOR_PRESETS = ['#4285f4', '#6c63ff', '#4caf50', '#f9c74f', '#e8853d', '#ff6b6b'];
+
+function initDriveSection() {
+  loadDriveAccounts();
+  document.getElementById('add-drive-btn').addEventListener('click', handleAddDriveAccount);
+  document.getElementById('drive-color-presets').addEventListener('click', function(e) {
+    var dot = e.target.closest('.cal-preset-dot');
+    if (!dot) return;
+    this.querySelectorAll('.cal-preset-dot').forEach(function(d) { d.classList.remove('active'); });
+    dot.classList.add('active');
+  });
+}
+
+function loadDriveAccounts() {
+  chrome.storage.sync.get('driveAccounts', function(data) {
+    renderDriveAccountList(data.driveAccounts || []);
+  });
+}
+
+function saveDriveAccounts(accounts, cb) {
+  chrome.storage.sync.set({ driveAccounts: accounts }, function() {
+    renderDriveAccountList(accounts);
+    if (cb) cb();
+  });
+}
+
+async function handleAddDriveAccount() {
+  var statusEl = document.getElementById('drive-add-status');
+  var activeDot = document.querySelector('#drive-color-presets .cal-preset-dot.active');
+  var color = activeDot ? activeDot.getAttribute('data-color') : '#4285f4';
+  var stored = await new Promise(function(res) { chrome.storage.sync.get('driveAccounts', function(d) { res(d.driveAccounts || []); }); });
+  if (stored.length >= 1) {
+    statusEl.textContent = '登録済みのアカウントを削除してから追加してください。';
+    return;
+  }
+  statusEl.textContent = '認証中...';
+  var authUrl = 'https://accounts.google.com/o/oauth2/auth?' +
+    'client_id=' + encodeURIComponent(DRIVE_CLIENT_ID) +
+    '&redirect_uri=' + encodeURIComponent(DRIVE_REDIRECT) +
+    '&response_type=token' +
+    '&scope=' + encodeURIComponent(DRIVE_SCOPES);
+  chrome.identity.launchWebAuthFlow({ url: authUrl, interactive: true }, async function(redirectUrl) {
+    if (chrome.runtime.lastError || !redirectUrl) {
+      statusEl.textContent = '認証がキャンセルされました。';
+      return;
+    }
+    var params = new URLSearchParams(new URL(redirectUrl).hash.slice(1));
+    var token = params.get('access_token');
+    var expiresIn = parseInt(params.get('expires_in') || '3600');
+    if (!token) { statusEl.textContent = 'トークン取得に失敗しました。'; return; }
+    var profileRes = await fetch('https://www.googleapis.com/oauth2/v1/userinfo?alt=json', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    var profile = await profileRes.json();
+    var email = profile.email || 'unknown@gmail.com';
+    var accounts = [{ email: email, token: token, expiresAt: Date.now() + expiresIn * 1000, color: color }];
+    saveDriveAccounts(accounts, function() {
+      showStatus('「' + email + '」を追加しました');
+      statusEl.textContent = '';
+    });
+  });
+}
+
+function renderDriveAccountList(accounts) {
+  var container = document.getElementById('drive-account-list');
+  if (!container) return;
+  if (accounts.length === 0) {
+    container.innerHTML = '<p class="empty-msg">アカウントが登録されていません</p>';
+    return;
+  }
+  var html = '';
+  accounts.forEach(function(account) {
+    var isExpired = account.expiresAt && account.expiresAt < Date.now();
+    var statusLabel = isExpired
+      ? '<span style="font-size:11px;color:var(--danger)">トークン期限切れ（再ログインが必要）</span>'
+      : '<span style="font-size:11px;color:var(--text-secondary)">認証済み</span>';
+    html += '<div class="cal-item">';
+    html += '<span class="cal-color-dot" style="background:' + escapeHtml(account.color) + '"></span>';
+    html += '<div style="flex:1;min-width:0">';
+    html += '<div style="font-size:13px;color:var(--text-heading);font-weight:600">' + escapeHtml(account.email) + '</div>';
+    html += statusLabel;
+    html += '</div>';
+    html += '<div class="cal-item-actions">';
+    html += '<div class="cal-color-presets drive-item-presets" data-email="' + escapeHtml(account.email) + '">';
+    DRIVE_COLOR_PRESETS.forEach(function(pc) {
+      html += '<span class="cal-preset-dot' + (account.color === pc ? ' active' : '') + '" data-color="' + pc + '" style="background:' + pc + '"></span>';
+    });
+    html += '</div>';
+    html += '<button class="btn btn-delete" data-del-drive="' + escapeHtml(account.email) + '">×</button>';
+    html += '</div></div>';
+  });
+  container.innerHTML = html;
+  container.querySelectorAll('.drive-item-presets').forEach(function(group) {
+    group.addEventListener('click', function(e) {
+      var dot = e.target.closest('.cal-preset-dot');
+      if (!dot) return;
+      chrome.storage.sync.get('driveAccounts', function(data) {
+        var accs = data.driveAccounts || [];
+        var acc = accs.find(function(a) { return a.email === group.getAttribute('data-email'); });
+        if (acc) { acc.color = dot.getAttribute('data-color'); saveDriveAccounts(accs, function() { showStatus('カラーを変更しました'); }); }
+      });
+    });
+  });
+  container.querySelectorAll('[data-del-drive]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var email = this.getAttribute('data-del-drive');
+      showModal('「' + email + '」を削除しますか？\nトークンも削除されます。', function() {
+        saveDriveAccounts([], function() { showStatus('アカウントを削除しました'); });
+      });
+    });
+  });
+}
+
 // ===== v1.3: Google Calendar OAuth + iCal URL ハイブリッド管理 =====
 const OPTIONS_CLIENT_ID = 'YOUR_CLIENT_ID.apps.googleusercontent.com';
 const OPTIONS_SCOPES    = 'https://www.googleapis.com/auth/calendar.readonly';
@@ -590,17 +770,37 @@ function handleAddCalendar() {
   });
 }
 // ===== v1.3: レイアウト設定 =====
+var columnCount = 3;
 var DEFAULT_WIDGETS = [
-  { id: 'calendar', label: 'カレンダー', visible: true, column: 'left' },
-  { id: 'favorites', label: 'お気に入り', visible: true, column: 'center' },
-  { id: 'news', label: 'ニュース', visible: true, column: 'right' }
+  { id: 'calendar',  label: 'カレンダー',    visible: true,  column: 'left',   height: 1 },
+  { id: 'favorites', label: 'お気に入り',    visible: true,  column: 'center', height: 1 },
+  { id: 'news',      label: 'ニュース',      visible: true,  column: 'right',  height: 1 },
+  { id: 'drive',     label: 'Googleドライブ', visible: false, column: 'right',  height: 1 }
 ];
 var widgetSettings = [];
 function loadWidgetSettings() {
-  chrome.storage.sync.get(['widgetSettings', 'columnWidths'], function(data) {
-    widgetSettings = data.widgetSettings || DEFAULT_WIDGETS.map(function(w) { return Object.assign({}, w); });
+  chrome.storage.sync.get(['widgetSettings', 'columnWidths', 'columnCount'], function(data) {
+    var saved = data.widgetSettings || [];
+    widgetSettings = DEFAULT_WIDGETS.map(function(def) {
+      return saved.find(function(s) { return s.id === def.id; }) || Object.assign({}, def);
+    });
+    columnCount = parseInt(data.columnCount) || 3;
     renderWidgetTable();
     applyZoneWidths(data.columnWidths || '1-1-1');
+    updateColCountUI(columnCount);
+  });
+}
+function updateColCountUI(n) {
+  document.querySelectorAll('.layout-col-count-btn').forEach(function(btn) {
+    btn.classList.toggle('active', parseInt(btn.getAttribute('data-count')) === n);
+  });
+  var zones = document.querySelectorAll('.layout-col-zone');
+  var handles = document.querySelectorAll('.layout-resize-handle');
+  zones.forEach(function(zone, i) {
+    zone.style.display = i < n ? '' : 'none';
+  });
+  handles.forEach(function(handle, i) {
+    handle.style.display = i < n - 1 ? '' : 'none';
   });
 }
 function renderWidgetTable() {
@@ -617,34 +817,62 @@ function renderWidgetTable() {
     card.className = 'layout-widget-card';
     card.draggable = true;
     card.setAttribute('data-widget-id', widget.id);
+    card.title = widget.label;
+    card.style.flex = widget.height || 1;
     card.innerHTML =
       '<span class="layout-drag-handle">⠿</span>' +
-      '<span class="layout-widget-name">' + escapeHtml(widget.label) + '</span>' +
-      '<div class="toggle-switch' + (widget.visible ? ' active' : '') + '" data-widget-id="' + widget.id + '"></div>';
+      '<span class="layout-widget-name">' + escapeHtml(widget.label) + '</span>';
     var zone = widget.visible ? (zones[widget.column] || zones.left) : zones.hidden;
     if (zone) zone.appendChild(card);
   });
-  setupLayoutDnD(zones);
-  document.querySelectorAll('#section-layout .toggle-switch').forEach(function(toggle) {
-    toggle.addEventListener('click', function(e) {
-      e.stopPropagation();
-      var id = this.getAttribute('data-widget-id');
-      var w = widgetSettings.find(function(w) { return w.id === id; });
-      if (w) {
-        w.visible = !w.visible;
-        chrome.storage.sync.set({ widgetSettings: widgetSettings }, function() {
-          renderWidgetTable();
-          showStatus('表示設定を更新しました');
-        });
+  Object.entries(zones).forEach(function(entry) {
+    var zoneName = entry[0], zoneEl = entry[1];
+    if (!zoneEl) return;
+    if (zoneEl.children.length === 0) {
+      var ph = document.createElement('p');
+      ph.className = 'zone-placeholder';
+      ph.textContent = zoneName === 'hidden' ? 'ここにドロップして非表示' : 'ここにドロップ';
+      zoneEl.appendChild(ph);
+    } else if (zoneName !== 'hidden') {
+      var cards = Array.from(zoneEl.querySelectorAll('.layout-widget-card'));
+      for (var i = 0; i < cards.length - 1; i++) {
+        var handle = document.createElement('div');
+        handle.className = 'layout-vresize-handle';
+        handle.setAttribute('data-top', cards[i].getAttribute('data-widget-id'));
+        handle.setAttribute('data-bot', cards[i + 1].getAttribute('data-widget-id'));
+        zoneEl.insertBefore(handle, cards[i + 1]);
       }
-    });
+    }
   });
+  setupLayoutDnD(zones);
+  setupVerticalResizeHandles();
+  renderLayoutPreview();
+  updateColCountUI(columnCount);
 }
 function applyZoneWidths(value) {
   var parts = (value || '1-1-1').split('-');
-  document.querySelectorAll('.layout-col-zone').forEach(function(zone, i) {
-    zone.style.flex = parts[i] || '1';
+  var zones = document.querySelectorAll('.layout-col-zone');
+  var activeParts = parts.slice(0, columnCount);
+  var total = activeParts.reduce(function(s, v) { return s + (parseFloat(v) || 1); }, 0);
+  zones.forEach(function(zone, i) {
+    var flex = parseFloat(parts[i]) || 1;
+    zone.style.flex = flex;
+    if (i < columnCount) {
+      var pct = document.getElementById('col-pct-' + i);
+      if (pct) pct.textContent = Math.round(flex / total * 100) + '%';
+    }
   });
+}
+function updateColPcts() {
+  var zones = document.querySelectorAll('.layout-col-zone');
+  var flexes = Array.from(zones).map(function(z) { return parseFloat(z.style.flex) || 1; });
+  var activeFlexes = flexes.slice(0, columnCount);
+  var total = activeFlexes.reduce(function(a, b) { return a + b; }, 0);
+  activeFlexes.forEach(function(f, i) {
+    var pct = document.getElementById('col-pct-' + i);
+    if (pct) pct.textContent = Math.round(f / total * 100) + '%';
+  });
+  renderLayoutPreview();
 }
 function setupResizeHandles() {
   var container = document.getElementById('layout-dnd-container');
@@ -655,26 +883,33 @@ function setupResizeHandles() {
       var handleIdx = parseInt(this.getAttribute('data-handle-idx'));
       var cols = Array.from(document.querySelectorAll('.layout-col-zone'));
       var startX = e.clientX;
-      var containerWidth = container.getBoundingClientRect().width;
-      var available = containerWidth - 12 * (cols.length + 1);
       var initialFlexes = cols.map(function(col) { return parseFloat(col.style.flex) || 1; });
-      var totalFlex = initialFlexes.reduce(function(a, b) { return a + b; }, 0);
-      var initialPx = initialFlexes.map(function(f) { return (f / totalFlex) * available; });
+      var activeTotalFlex = initialFlexes.slice(0, columnCount).reduce(function(a, b) { return a + b; }, 0);
+      // 実際の表示幅を取得（非表示列は0）
+      var initialPx = cols.map(function(col) { return col.getBoundingClientRect().width; });
       document.body.style.cursor = 'col-resize';
+      handle.classList.add('resizing');
       function onMouseMove(e) {
         var dx = e.clientX - startX;
         var newPx = initialPx.slice();
-        newPx[handleIdx] = Math.max(60, initialPx[handleIdx] + dx);
-        newPx[handleIdx + 1] = Math.max(60, initialPx[handleIdx + 1] - dx);
-        var newTotal = newPx.reduce(function(a, b) { return a + b; }, 0);
-        cols.forEach(function(col, i) { col.style.flex = (newPx[i] / newTotal * totalFlex).toFixed(2); });
+        newPx[handleIdx] = Math.max(80, initialPx[handleIdx] + dx);
+        newPx[handleIdx + 1] = Math.max(80, initialPx[handleIdx + 1] - dx);
+        var activeNewTotal = newPx.slice(0, columnCount).reduce(function(a, b) { return a + b; }, 0);
+        cols.forEach(function(col, i) {
+          if (i < columnCount) col.style.flex = (newPx[i] / activeNewTotal * activeTotalFlex).toFixed(3);
+        });
+        updateColPcts();
       }
       function onMouseUp() {
         document.removeEventListener('mousemove', onMouseMove);
         document.removeEventListener('mouseup', onMouseUp);
         document.body.style.cursor = '';
-        var finalFlexes = cols.map(function(col) { return parseFloat(col.style.flex) || 1; });
-        var minFlex = Math.min.apply(null, finalFlexes);
+        handle.classList.remove('resizing');
+        // 非表示列の元のflex値を保持して保存
+        var finalFlexes = cols.map(function(col, i) {
+          return i < columnCount ? (parseFloat(col.style.flex) || 1) : initialFlexes[i];
+        });
+        var minFlex = Math.min.apply(null, finalFlexes.filter(function(f) { return f > 0; }));
         var normalized = finalFlexes.map(function(f) { return (f / minFlex).toFixed(2); });
         chrome.storage.sync.set({ columnWidths: normalized.join('-') }, function() { showStatus('カラム幅を保存しました'); });
       }
@@ -682,56 +917,236 @@ function setupResizeHandles() {
       document.addEventListener('mouseup', onMouseUp);
     });
   });
+  var resetBtn = document.getElementById('reset-col-widths');
+  if (resetBtn) {
+    resetBtn.addEventListener('click', function() {
+      widgetSettings.forEach(function(w) { w.height = 1; });
+      chrome.storage.sync.set({ columnWidths: '1-1-1', widgetSettings: widgetSettings }, function() {
+        applyZoneWidths('1-1-1');
+        renderWidgetTable();
+        showStatus('レイアウトをリセットしました');
+      });
+    });
+  }
 }
 function setupLayoutDnD(zones) {
   var draggedCard = null;
+
+  function clearIndicators() {
+    document.querySelectorAll('.layout-widget-card').forEach(function(c) {
+      c.classList.remove('drag-over-above', 'drag-over-below');
+    });
+    Object.values(zones).forEach(function(z) { if (z) z.classList.remove('drag-over'); });
+  }
+
   document.querySelectorAll('.layout-widget-card').forEach(function(card) {
     card.addEventListener('dragstart', function(e) {
       draggedCard = this;
-      this.classList.add('dragging');
+      var self = this;
+      setTimeout(function() { self.classList.add('dragging'); }, 0);
       e.dataTransfer.effectAllowed = 'move';
     });
     card.addEventListener('dragend', function() {
       this.classList.remove('dragging');
-      Object.values(zones).forEach(function(z) { z.classList.remove('drag-over'); });
+      clearIndicators();
+      draggedCard = null;
+    });
+    card.addEventListener('dragover', function(e) {
+      if (!draggedCard || this === draggedCard) return;
+      e.preventDefault();
+      e.stopPropagation();
+      document.querySelectorAll('.layout-widget-card').forEach(function(c) {
+        c.classList.remove('drag-over-above', 'drag-over-below');
+      });
+      var rect = this.getBoundingClientRect();
+      this.classList.add(e.clientY < rect.top + rect.height / 2 ? 'drag-over-above' : 'drag-over-below');
+    });
+    card.addEventListener('dragleave', function(e) {
+      if (!this.contains(e.relatedTarget)) {
+        this.classList.remove('drag-over-above', 'drag-over-below');
+      }
+    });
+    card.addEventListener('drop', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      clearIndicators();
+      if (!draggedCard || this === draggedCard) return;
+      var fromId = draggedCard.getAttribute('data-widget-id');
+      var toId = this.getAttribute('data-widget-id');
+      var above = e.clientY < this.getBoundingClientRect().top + this.getBoundingClientRect().height / 2;
+      var targetZone = this.closest('[data-zone]');
+      var zoneName = targetZone ? targetZone.getAttribute('data-zone') : null;
+      applyWidgetReorder(fromId, toId, above, zoneName);
     });
   });
+
   Object.entries(zones).forEach(function(entry) {
     var zoneName = entry[0], zoneEl = entry[1];
+    if (!zoneEl) return;
     zoneEl.addEventListener('dragover', function(e) {
+      if (e.target.closest('.layout-widget-card')) return;
       e.preventDefault();
       this.classList.add('drag-over');
     });
-    zoneEl.addEventListener('dragleave', function() {
-      this.classList.remove('drag-over');
+    zoneEl.addEventListener('dragleave', function(e) {
+      if (!this.contains(e.relatedTarget)) this.classList.remove('drag-over');
     });
     zoneEl.addEventListener('drop', function(e) {
+      if (e.target.closest('.layout-widget-card')) return;
       e.preventDefault();
       this.classList.remove('drag-over');
       if (!draggedCard) return;
       var id = draggedCard.getAttribute('data-widget-id');
-      var w = widgetSettings.find(function(w) { return w.id === id; });
-      if (w) {
-        var changed = false;
-        if (zoneName === 'hidden') {
-          if (w.visible) { w.visible = false; changed = true; }
-        } else {
-          if (!w.visible || w.column !== zoneName) {
-            w.visible = true;
-            w.column = zoneName;
-            changed = true;
-          }
-        }
-        if (changed) {
-          chrome.storage.sync.set({ widgetSettings: widgetSettings }, function() {
-            renderWidgetTable();
-            showStatus('配置を更新しました');
-          });
-        }
-      }
-      draggedCard = null;
+      applyWidgetMoveToZone(id, zoneName);
     });
   });
+}
+
+function applyWidgetReorder(fromId, toId, above, zoneName) {
+  var fromIdx = widgetSettings.findIndex(function(w) { return w.id === fromId; });
+  if (fromIdx === -1) return;
+  var widget = widgetSettings.splice(fromIdx, 1)[0];
+  if (zoneName === 'hidden') { widget.visible = false; }
+  else if (zoneName) { widget.visible = true; widget.column = zoneName; }
+  var toIdx = widgetSettings.findIndex(function(w) { return w.id === toId; });
+  if (toIdx === -1) toIdx = widgetSettings.length;
+  else if (!above) toIdx++;
+  widgetSettings.splice(toIdx, 0, widget);
+  chrome.storage.sync.set({ widgetSettings: widgetSettings }, function() {
+    renderWidgetTable();
+    showStatus('配置を更新しました');
+  });
+}
+
+function applyWidgetMoveToZone(id, zoneName) {
+  var fromIdx = widgetSettings.findIndex(function(w) { return w.id === id; });
+  if (fromIdx === -1) return;
+  var widget = widgetSettings.splice(fromIdx, 1)[0];
+  if (zoneName === 'hidden') { widget.visible = false; }
+  else { widget.visible = true; widget.column = zoneName; }
+  var insertAt = widgetSettings.length;
+  for (var i = widgetSettings.length - 1; i >= 0; i--) {
+    var w = widgetSettings[i];
+    var inZone = zoneName === 'hidden' ? !w.visible : (w.visible && w.column === zoneName);
+    if (inZone) { insertAt = i + 1; break; }
+  }
+  widgetSettings.splice(insertAt, 0, widget);
+  chrome.storage.sync.set({ widgetSettings: widgetSettings }, function() {
+    renderWidgetTable();
+    showStatus('配置を更新しました');
+  });
+}
+
+function setupVerticalResizeHandles() {
+  document.querySelectorAll('.layout-vresize-handle').forEach(function(handle) {
+    handle.addEventListener('mousedown', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      var topId = this.getAttribute('data-top');
+      var botId = this.getAttribute('data-bot');
+      var topWidget = widgetSettings.find(function(w) { return w.id === topId; });
+      var botWidget = widgetSettings.find(function(w) { return w.id === botId; });
+      if (!topWidget || !botWidget) return;
+      var topCard = document.querySelector('.layout-widget-card[data-widget-id="' + topId + '"]');
+      var botCard = document.querySelector('.layout-widget-card[data-widget-id="' + botId + '"]');
+      if (!topCard || !botCard) return;
+      var startY = e.clientY;
+      var startTopH = topCard.getBoundingClientRect().height;
+      var startBotH = botCard.getBoundingClientRect().height;
+      var totalH = startTopH + startBotH;
+      var totalFlex = (topWidget.height || 1) + (botWidget.height || 1);
+      document.body.style.cursor = 'row-resize';
+      handle.classList.add('resizing');
+      function onMouseMove(e) {
+        var dy = e.clientY - startY;
+        var newTopH = Math.max(36, startTopH + dy);
+        var newBotH = Math.max(36, totalH - newTopH);
+        var ratio = totalH / (newTopH + newBotH);
+        topWidget.height = parseFloat((newTopH * ratio / totalH * totalFlex).toFixed(3));
+        botWidget.height = parseFloat((newBotH * ratio / totalH * totalFlex).toFixed(3));
+        topCard.style.flex = topWidget.height;
+        botCard.style.flex = botWidget.height;
+        renderLayoutPreview();
+      }
+      function onMouseUp() {
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+        document.body.style.cursor = '';
+        handle.classList.remove('resizing');
+        chrome.storage.sync.set({ widgetSettings: widgetSettings }, function() {
+          showStatus('高さを保存しました');
+        });
+      }
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    });
+  });
+}
+
+function renderLayoutPreview() {
+  var preview = document.getElementById('layout-preview');
+  if (!preview) return;
+
+  var VIRT_W = 600;
+  var VIRT_H = 340;
+  var previewW = preview.clientWidth || 400;
+  var scale = previewW / VIRT_W;
+  preview.style.height = Math.round(VIRT_H * scale) + 'px';
+
+  var colZones = document.querySelectorAll('.layout-col-zone');
+  var flexes = Array.from(colZones).map(function(z) { return parseFloat(z.style.flex) || 1; });
+  var colKeys = ['left', 'center', 'right'];
+  var cols = { left: [], center: [], right: [] };
+  widgetSettings.forEach(function(w) {
+    if (w.visible && cols[w.column] !== undefined) cols[w.column].push(w);
+  });
+
+  function widgetBody(wid) {
+    var cells, rows, i;
+    if (wid === 'calendar') {
+      cells = '';
+      for (i = 0; i < 35; i++) cells += '<i></i>';
+      return '<div class="mp-cal-hdr"></div><div class="mp-cal">' + cells + '</div>';
+    }
+    if (wid === 'favorites') {
+      rows = '';
+      for (i = 0; i < 5; i++) rows += '<div class="mp-row"><i></i><b></b></div>';
+      return rows;
+    }
+    if (wid === 'news') {
+      rows = '';
+      for (i = 0; i < 3; i++) rows += '<div class="mp-news"><i></i><span><b></b><s></s></span></div>';
+      return rows;
+    }
+    if (wid === 'drive') {
+      rows = '';
+      for (i = 0; i < 5; i++) rows += '<div class="mp-row"><i></i><b></b></div>';
+      return rows;
+    }
+    return '';
+  }
+
+  var colsHtml = colKeys.slice(0, columnCount).map(function(key, i) {
+    var widgets = cols[key];
+    var inner = widgets.length
+      ? widgets.map(function(w) {
+          return '<div class="mp-card" style="flex:' + (w.height || 1) + '">' +
+            '<div class="mp-card-title"></div>' +
+            widgetBody(w.id) +
+          '</div>';
+        }).join('')
+      : '<div class="mp-empty"></div>';
+    return '<div class="mp-col" style="flex:' + flexes[i] + '">' + inner + '</div>';
+  }).join('');
+
+  preview.innerHTML =
+    '<div class="mp-screen" style="width:' + VIRT_W + 'px;height:' + VIRT_H + 'px;' +
+    'transform:scale(' + scale.toFixed(4) + ');transform-origin:top left">' +
+    '<div class="mp-topbar" data-count="' + getEnabledCount() + '">' +
+      Array(Math.max(1, getEnabledCount())).fill('<div class="mp-sb"></div>').join('') +
+    '</div>' +
+    '<div class="mp-body">' + colsHtml + '</div>' +
+    '</div>';
 }
 // ===== ニュース =====
 function loadNewsSource(){
@@ -797,6 +1212,8 @@ function handleExport() {
     'theme',
     'newsSource', 'customRssUrl',
     'icalUrls',
+    'searchEngines',
+    'driveAccounts',
     'widgetSettings', 'columnWidths',
     'eventFilterMode',
     'enableEventAdd'
@@ -851,6 +1268,123 @@ function handleImport(e) {
   };
   reader.readAsText(file);
   e.target.value = '';
+}
+
+// ===== 検索エンジン設定 =====
+var MAX_ENABLED = 4;
+var SEARCH_PRESETS = [
+  {id:'google',name:'Google',url:'https://www.google.com/search?q=%s',icon:'https://www.google.com/favicon.ico',enabled:true,preset:true},
+  {id:'perplexity',name:'Perplexity',url:'https://www.perplexity.ai/search?q=%s',icon:'https://www.google.com/s2/favicons?sz=64&domain=perplexity.ai',enabled:true,preset:true},
+  {id:'amazon',name:'Amazon',url:'https://www.amazon.co.jp/s?k=%s',icon:'https://www.google.com/s2/favicons?sz=64&domain=amazon.co.jp',enabled:false,preset:true},
+  {id:'youtube',name:'YouTube',url:'https://www.youtube.com/results?search_query=%s',icon:'https://www.google.com/s2/favicons?sz=64&domain=youtube.com',enabled:false,preset:true},
+  {id:'chatgpt',name:'ChatGPT',url:'https://chatgpt.com/?q=%s',icon:'https://www.google.com/s2/favicons?sz=64&domain=chatgpt.com',enabled:false,preset:true}
+];
+var searchEngines = [];
+function loadSearchSettings() {
+  chrome.storage.sync.get('searchEngines', function(data) {
+    searchEngines = data.searchEngines || SEARCH_PRESETS.map(function(p) { return Object.assign({}, p); });
+    renderSearchEngineList();
+    renderSearchPreview();
+  });
+}
+function saveSearchEngines(cb) {
+  chrome.storage.sync.set({searchEngines: searchEngines}, function() {
+    renderSearchPreview();
+    renderLayoutPreview();
+    if (cb) cb();
+  });
+}
+function getEnabledCount() { return searchEngines.filter(function(e) { return e.enabled; }).length; }
+function renderSearchEngineList() {
+  var container = document.getElementById('search-engine-list');
+  var cnt = getEnabledCount();
+  document.getElementById('engine-enabled-count').textContent = cnt + ' / ' + MAX_ENABLED + ' 有効';
+  var html = '';
+  searchEngines.forEach(function(engine) {
+    var tA = engine.enabled ? ' active' : '';
+    var tD = (!engine.enabled && cnt >= MAX_ENABLED) ? ' disabled' : '';
+    html += '<div class="engine-row" draggable="true" data-engine-id="' + escapeHtml(engine.id) + '">';
+    html += '<span class="engine-drag">⠿</span>';
+    html += '<img class="engine-icon" src="' + escapeHtml(engine.icon) + '" alt="" onerror="this.style.display=\'none\'">';
+    html += '<span class="engine-name">' + escapeHtml(engine.name) + '</span>';
+    html += '<div class="engine-actions"><div class="toggle-switch' + tA + tD + '" data-engine-id="' + escapeHtml(engine.id) + '"></div>';
+    if (!engine.preset) html += '<button class="btn btn-delete" data-del-engine="' + escapeHtml(engine.id) + '">×</button>';
+    html += '</div></div>';
+  });
+  container.innerHTML = html;
+  container.querySelectorAll('.toggle-switch').forEach(function(toggle) {
+    toggle.addEventListener('click', function() {
+      if (this.classList.contains('disabled')) return;
+      var id = this.getAttribute('data-engine-id');
+      var engine = searchEngines.find(function(e) { return e.id === id; });
+      if (!engine) return;
+      engine.enabled = !engine.enabled;
+      saveSearchEngines(function() { renderSearchEngineList(); });
+    });
+  });
+  container.querySelectorAll('[data-del-engine]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var id = this.getAttribute('data-del-engine');
+      searchEngines = searchEngines.filter(function(e) { return e.id !== id; });
+      saveSearchEngines(function() { renderSearchEngineList(); showStatus('検索エンジンを削除しました'); });
+    });
+  });
+  setupEngineDnD(container);
+}
+function setupEngineDnD(container) {
+  var draggedRow = null;
+  container.querySelectorAll('.engine-row').forEach(function(row) {
+    row.addEventListener('dragstart', function(e) { draggedRow = this; this.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; });
+    row.addEventListener('dragover', function(e) {
+      e.preventDefault(); if (this === draggedRow) return;
+      container.querySelectorAll('.engine-row').forEach(function(r) { r.classList.remove('drag-over-above', 'drag-over-below'); });
+      var rect = this.getBoundingClientRect();
+      this.classList.add(e.clientY < rect.top + rect.height / 2 ? 'drag-over-above' : 'drag-over-below');
+    });
+    row.addEventListener('dragleave', function() { this.classList.remove('drag-over-above', 'drag-over-below'); });
+    row.addEventListener('drop', function(e) {
+      e.preventDefault();
+      container.querySelectorAll('.engine-row').forEach(function(r) { r.classList.remove('drag-over-above', 'drag-over-below'); });
+      if (!draggedRow || this === draggedRow) return;
+      var fromId = draggedRow.getAttribute('data-engine-id'), toId = this.getAttribute('data-engine-id');
+      var above = e.clientY < this.getBoundingClientRect().top + this.getBoundingClientRect().height / 2;
+      var fromIdx = searchEngines.findIndex(function(e) { return e.id === fromId; });
+      var item = searchEngines.splice(fromIdx, 1)[0];
+      var toIdx = searchEngines.findIndex(function(e) { return e.id === toId; }); if (!above) toIdx++;
+      searchEngines.splice(toIdx, 0, item);
+      saveSearchEngines(function() { renderSearchEngineList(); });
+    });
+    row.addEventListener('dragend', function() {
+      this.classList.remove('dragging');
+      container.querySelectorAll('.engine-row').forEach(function(r) { r.classList.remove('drag-over-above', 'drag-over-below'); });
+    });
+  });
+}
+function renderSearchPreview() {
+  var area = document.getElementById('search-preview-area');
+  if (!area) return;
+  var enabled = searchEngines.filter(function(e) { return e.enabled; });
+  if (enabled.length === 0) { area.innerHTML = '<p class="empty-msg">検索バーは非表示です</p>'; area.removeAttribute('data-count'); return; }
+  area.setAttribute('data-count', enabled.length);
+  var html = '';
+  enabled.forEach(function(engine) {
+    html += '<div class="preview-search-box"><img src="' + escapeHtml(engine.icon) + '" alt="" class="preview-icon" onerror="this.style.display=\'none\'"><span class="preview-placeholder">' + escapeHtml(engine.name) + ' で検索...</span></div>';
+  });
+  area.innerHTML = html;
+}
+function handleAddEngine() {
+  var name = document.getElementById('engine-name').value.trim();
+  var url = document.getElementById('engine-url').value.trim();
+  if (!name || !url) { showStatus('名前とURLを入力してください'); return; }
+  if (url.indexOf('%s') === -1) { showStatus('URLに %s を含めてください'); return; }
+  var domain = ''; try { domain = new URL(url.replace('%s', 'test')).hostname; } catch(e) {}
+  searchEngines.push({id: 'custom-' + Date.now(), name: name, url: url, icon: domain ? 'https://www.google.com/s2/favicons?sz=64&domain=' + domain : '', enabled: false, preset: false});
+  saveSearchEngines(function() {
+    renderSearchEngineList();
+    showStatus('「' + name + '」を追加しました');
+    document.getElementById('engine-name').value = '';
+    document.getElementById('engine-url').value = '';
+  });
 }
 
 // ===== v1.3: 予定追加機能ON/OFF =====

@@ -169,6 +169,18 @@ body {
 .container { max-width:1400px; margin:0 auto; padding:24px; height:100vh; display:flex; flex-direction:column; }
 
 
+/* ===== 検索エリア ===== */
+.search-area { display:flex; gap:16px; justify-content:center; margin-bottom:32px; padding-top:20px; flex-shrink:0; }
+.search-area:empty { display:none; }
+.search-box { flex:1; max-width:480px; }
+.search-area[data-count="3"] .search-box { max-width:320px; }
+.search-area[data-count="4"] .search-box { max-width:240px; }
+.search-box form { display:flex; align-items:center; background: var(--input-bg); border:1px solid var(--input-border); border-radius:24px; padding:8px 16px; backdrop-filter:blur(10px); transition:all 0.3s; }
+.search-box form:focus-within { background: var(--input-focus-bg); border-color: var(--input-focus-border); box-shadow:0 0 20px var(--accent-light); }
+.search-icon { width:20px; height:20px; margin-right:10px; }
+.search-box input { flex:1; background:none; border:none; outline:none; color: var(--text-heading); font-size:15px; }
+.search-box input::placeholder { color: var(--text-placeholder); }
+
 /* ===== メインレイアウト ===== */
 .main-content { display:grid; grid-template-columns:1fr 1fr 1fr; gap:20px; flex:1; min-height:0; }
 .left-column, .center-column, .right-column { display:flex; flex-direction:column; gap:20px; min-height:0; }
@@ -260,6 +272,25 @@ body {
 .news-source { font-size:11px; color: var(--text-muted); margin-top:4px; }
 .loading { color: var(--text-muted); font-size:13px; }
 
+/* ===== Googleドライブウィジェット ===== */
+#drive-container { display:flex; flex-direction:column; height:100%; }
+.drive-hint { font-size:12px; color: var(--text-muted); text-align:center; padding:20px 0; line-height:1.7; }
+.drive-error { font-size:12px; color: var(--danger); text-align:center; padding:12px 0; }
+.drive-empty { font-size:12px; color: var(--text-muted); text-align:center; padding:12px 0; }
+.drive-tabs { display:flex; gap:4px; margin-bottom:10px; flex-shrink:0; }
+.drive-tab { background:transparent; border:1px solid var(--divider); border-radius:6px; padding:4px 12px; font-size:12px; color: var(--text-secondary); cursor:pointer; transition:all 0.2s; }
+.drive-tab:hover { color: var(--text-primary); border-color: var(--input-border); }
+.drive-tab.active { background: var(--accent-light); border-color: var(--accent); color: var(--accent); font-weight:600; }
+.drive-list { flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:2px; padding-right:2px; }
+.drive-list::-webkit-scrollbar { width:4px; }
+.drive-list::-webkit-scrollbar-track { background:transparent; }
+.drive-list::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius:4px; }
+.drive-file { display:flex; align-items:center; gap:8px; padding:6px 8px; border-radius:6px; text-decoration:none; transition:background 0.15s; min-width:0; }
+.drive-file:hover { background: var(--hover-bg); }
+.drive-file-icon { font-size:14px; flex-shrink:0; line-height:1; }
+.drive-file-name { font-size:12px; color: var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; min-width:0; }
+.drive-file:hover .drive-file-name { color: var(--text-heading); }
+
 /* ===== 設定ボタン ===== */
 .settings-btn {
   position:fixed; bottom:20px; right:20px;
@@ -283,8 +314,8 @@ body {
 .filter-tab.active { background:var(--accent-light); color:var(--accent); }
 
 /* ===== v1.3: 予定追加モーダル ===== */
-.event-modal-overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:1000; justify-content:center; align-items:center; }
-.event-modal-overlay.show { display:flex; }
+.event-modal-overlay { display:flex; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:1000; justify-content:center; align-items:center; opacity:0; visibility:hidden; pointer-events:none; transition:opacity 0.15s, visibility 0.15s; }
+.event-modal-overlay.show { opacity:1; visibility:visible; pointer-events:auto; }
 .event-modal { background:var(--card-bg); border:1px solid var(--card-border); border-radius:16px; padding:28px; min-width:360px; max-width:440px; backdrop-filter:blur(20px); }
 .event-modal-title { font-size:16px; color:var(--text-heading); margin-bottom:20px; }
 .event-modal-body { display:flex; flex-direction:column; gap:14px; margin-bottom:24px; }

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Custom New Tab",
-  "version": "1.3.0",
+  "version": "1.0.0",
   "description": "新しいタブを、あなただけのダッシュボードに。",
   "oauth2": {
     "client_id": "76530077604-2ocp8a9jtpchr5shnovoj0n6evpe3ppn.apps.googleusercontent.com",
@@ -11,7 +11,8 @@
   },
   "permissions": [
     "storage",
-    "identity"
+    "identity",
+    "tabs"
   ],
   "host_permissions": [
     "https://news.google.com/*"

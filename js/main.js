@@ -1,13 +1,24 @@
 document.addEventListener('DOMContentLoaded', function() {
   loadCalendarEmbed();
   loadFavorites();
-loadNews();
+  loadSearchArea();
+  loadNews();
+  loadDriveWidget();
   applyLayoutSettings();
   document.getElementById('settings-btn').addEventListener('click', function() {
-    if (chrome.runtime.openOptionsPage) {
-      chrome.runtime.openOptionsPage();
-    } else {
-      window.open(chrome.runtime.getURL('options.html'));
+    document.getElementById('settings-panel-overlay').classList.add('show');
+    initOptionsPanel();
+  });
+  document.getElementById('settings-close-btn').addEventListener('click', function() {
+    var modal = document.getElementById('modal-overlay');
+    if (modal) modal.classList.remove('show');
+    document.getElementById('settings-panel-overlay').classList.remove('show');
+  });
+  document.getElementById('settings-panel-overlay').addEventListener('click', function(e) {
+    if (e.target === this) {
+      var modal = document.getElementById('modal-overlay');
+      if (modal) modal.classList.remove('show');
+      this.classList.remove('show');
     }
   });
   setInterval(updateMeetingButtons, 30000);
@@ -15,9 +26,10 @@ loadNews();
 
 // v1.3: レイアウト設定適用
 function applyLayoutSettings() {
-  chrome.storage.sync.get(['widgetSettings', 'columnWidths'], function(data) {
+  chrome.storage.sync.get(['widgetSettings', 'columnWidths', 'columnCount'], function(data) {
     var mainContent = document.getElementById('main-content');
     if (!mainContent) return;
+    var colCount = parseInt(data.columnCount) || 3;
     var defaults = [
       { id: 'calendar', visible: true, column: 'left' },
       { id: 'favorites', visible: true, column: 'center' },
@@ -35,13 +47,15 @@ function applyLayoutSettings() {
       els.forEach(function(el) {
         if (!widget.visible) {
           el.style.display = 'none';
+          el.style.flex = '';
         } else {
           el.style.display = '';
+          el.style.flex = widget.height || 1;
           targetCol.appendChild(el);
         }
       });
     });
-    // 空カラムを非表示にしてgridTemplateColumnsを再計算
+    // 列数設定に応じてカラムを表示/非表示にしてgridTemplateColumnsを再計算
     var colIds = ['col-left', 'col-center', 'col-right'];
     var widthParts = data.columnWidths ? data.columnWidths.split('-') : ['1', '1', '1'];
     var visibleWidths = [];
@@ -49,8 +63,9 @@ function applyLayoutSettings() {
       var col = document.getElementById(colId);
       if (!col) return;
       var hasContent = col.childElementCount > 0;
-      col.style.display = hasContent ? '' : 'none';
-      if (hasContent) visibleWidths.push(parseFloat(widthParts[i] || 1) + 'fr');
+      var withinCount = i < colCount;
+      col.style.display = (hasContent && withinCount) ? '' : 'none';
+      if (hasContent && withinCount) visibleWidths.push(parseFloat(widthParts[i] || 1) + 'fr');
     });
     if (visibleWidths.length > 0) {
       mainContent.style.gridTemplateColumns = visibleWidths.join(' ');
