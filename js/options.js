@@ -14,7 +14,7 @@ function initOptionsPanel() {
       if (sec === 'layout') setTimeout(renderLayoutPreview, 0);
     });
   });
-  loadFavorites();
+  loadFavoritesPanel();
   initCalendarSection();
   initDriveSection();
   loadNewsSource();
@@ -70,7 +70,7 @@ function showModal(message,onConfirm,confirmLabel){
 // ===== お気に入り =====
 var favorites=[];
 var storedSections=[];
-function loadFavorites(){chrome.storage.sync.get(['favorites','storedSections'],function(data){favorites=data.favorites||[];storedSections=data.storedSections||[];renderFavoritesList();updateCategorySelect();});}
+function loadFavoritesPanel(){chrome.storage.sync.get(['favorites','storedSections'],function(data){favorites=data.favorites||[];storedSections=data.storedSections||[];renderFavoritesList();updateCategorySelect();});}
 function saveFavorites(cb){var allCats=storedSections.slice();favorites.forEach(function(f){var c=f.category||'メイン';if(allCats.indexOf(c)===-1)allCats.push(c);});storedSections=allCats;chrome.storage.sync.set({favorites:favorites,storedSections:storedSections},function(){renderFavoritesList();updateCategorySelect();if(cb)cb();});}
 function updateCategorySelect(){
   var sel=document.getElementById('fav-category');
@@ -596,7 +596,13 @@ function handleAddIcalUrl() {
   if (!url.startsWith('http://') && !url.startsWith('https://')) {
     statusEl.textContent = 'URLはhttp://またはhttps://で始まる必要があります。'; return;
   }
-  chrome.storage.sync.get('icalUrls', function(data) {
+  statusEl.textContent = 'アクセス権限を確認中...';
+  requestHostAccess(url, function(ok) {
+    if (!ok) {
+      statusEl.textContent = 'URLへのアクセス権限が必要です（ブラウザの確認ダイアログを許可してください）';
+      return;
+    }
+    chrome.storage.sync.get('icalUrls', function(data) {
     var urls = data.icalUrls || [];
     var dup = urls.find(function(u) { return u.url === url; });
     if (dup) { statusEl.textContent = 'このURLは既に登録されています。'; return; }
@@ -611,6 +617,7 @@ function handleAddIcalUrl() {
       nameInput.value = '';
       urlInput.value = '';
       statusEl.textContent = '';
+    });
     });
   });
 }

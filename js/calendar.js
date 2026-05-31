@@ -236,12 +236,25 @@ async function fetchAllSources(renderList) {
     return fetchEventsForAccount(account);
   });
 
+  var icalErrors = [];
   var icalFetches = enabledIcals.map(function(cal) {
-    return fetch(cal.url).then(function(res) { return res.text(); }).then(function(text) {
+    return fetch(cal.url).then(function(res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.text();
+    }).then(function(text) {
+      if (!text.includes('BEGIN:VCALENDAR')) throw new Error('iCalフォーマットではありません');
       var events = parseICalEvents(text);
       events.forEach(function(ev) { ev.calendarName = cal.name; ev.calendarColor = cal.color; ev.source = 'ical'; });
       return events;
-    }).catch(function(err) { console.error('iCal fetch error (' + cal.name + '):', err); return []; });
+    }).catch(function(err) {
+      var msg = err.message || '';
+      var friendly = msg.includes('HTTP 4') ? 'URLが間違っているか、アクセスできません'
+        : msg.includes('HTTP 5') ? 'サーバーエラーが発生しました'
+        : msg.includes('iCalフォーマット') ? 'iCalファイルとして読み込めませんでした'
+        : 'URLに接続できません';
+      icalErrors.push('「' + cal.name + '」: ' + friendly);
+      return [];
+    });
   });
 
   var allFetches = oauthFetches.concat(icalFetches);
@@ -253,7 +266,15 @@ async function fetchAllSources(renderList) {
 
   updateCalendarDots(currentDate);
   renderCalendar();
-  if (renderList) renderFilteredEvents();
+  if (renderList) {
+    renderFilteredEvents();
+    if (icalErrors.length > 0 && allEvents.length === 0) {
+      var container = document.getElementById('events-container');
+      if (container) container.innerHTML =
+        '<p style="color:var(--danger);font-size:12px;padding:8px 0">iCal取得エラー:<br>' +
+        icalErrors.map(function(e) { return escapeAttr(e); }).join('<br>') + '</p>';
+    }
+  }
 }
 
 // ===== 重複排除（OAuth優先） =====
@@ -540,7 +561,7 @@ function renderICalEventsList(items) {
     html += '<div class="event-group"><div class="event-date-header">' + groupLabel + '</div>';
     groups[groupLabel].forEach(function(item) {
       var dot = item.calendarColor ? '<span class="event-cal-dot" style="background:' + escapeAttr(item.calendarColor) + '"></span>' : '';
-      var sourceBadge = item.source === 'ical' ? ' 📅' : '';
+      var sourceBadge = '';
       html += '<div class="event-item">' + dot +
         '<span class="event-time">' + escapeAttr(item.time) + '</span>' +
         '<span class="event-title">' + escapeAttr(item.title) + sourceBadge + '</span>';

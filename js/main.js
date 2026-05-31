@@ -13,16 +13,26 @@ document.addEventListener('DOMContentLoaded', function() {
     var modal = document.getElementById('modal-overlay');
     if (modal) modal.classList.remove('show');
     document.getElementById('settings-panel-overlay').classList.remove('show');
+    refreshAfterSettings();
   });
   document.getElementById('settings-panel-overlay').addEventListener('click', function(e) {
     if (e.target === this) {
       var modal = document.getElementById('modal-overlay');
       if (modal) modal.classList.remove('show');
       this.classList.remove('show');
+      refreshAfterSettings();
     }
   });
   setInterval(updateMeetingButtons, 30000);
 });
+
+// 設定パネルを閉じた後にメインページを更新
+function refreshAfterSettings() {
+  if (typeof fetchAllSources === 'function') fetchAllSources(true);
+  if (typeof loadFavorites === 'function') loadFavorites();
+  if (typeof loadDriveWidget === 'function') loadDriveWidget();
+  applyLayoutSettings();
+}
 
 // v1.3: レイアウト設定適用
 function applyLayoutSettings() {
