@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', function() {
   loadSearchArea();
   loadNews();
   loadDriveWidget();
-  applyLayoutSettings();
+applyLayoutSettings();
   document.getElementById('settings-btn').addEventListener('click', function() {
     document.getElementById('settings-panel-overlay').classList.add('show');
     initOptionsPanel();
@@ -31,7 +31,7 @@ function refreshAfterSettings() {
   if (typeof fetchAllSources === 'function') fetchAllSources(true);
   if (typeof loadFavorites === 'function') loadFavorites();
   if (typeof loadDriveWidget === 'function') loadDriveWidget();
-  applyLayoutSettings();
+applyLayoutSettings();
 }
 
 // v1.3: レイアウト設定適用

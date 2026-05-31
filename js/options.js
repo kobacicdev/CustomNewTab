@@ -35,9 +35,10 @@ function initOptionsPanel() {
     btn.addEventListener('click', function() {
       columnCount = parseInt(this.getAttribute('data-count'));
       updateColCountUI(columnCount);
-      chrome.storage.sync.set({ columnCount: columnCount }, function() {
+      chrome.storage.sync.set({ columnCount: columnCount, columnWidths: '1-1-1' }, function() {
         showStatus(columnCount + '列レイアウトに変更しました');
       });
+      applyZoneWidths('1-1-1');
       renderLayoutPreview();
     });
   });
