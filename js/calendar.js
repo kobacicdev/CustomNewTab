@@ -1,12 +1,13 @@
 // ===== カスタム月カレンダー + 予定リスト =====
 // v1.3: Google Calendar API（OAuth）+ iCal URL ハイブリッド対応
 
-const CLIENT_ID = '76530077604-2ocp8a9jtpchr5shnovoj0n6evpe3ppn.apps.googleusercontent.com';
+const CLIENT_ID = '426478709632-vmchoj67r7bepje4tatk893f0kuhio7u.apps.googleusercontent.com';
 const SCOPES = 'https://www.googleapis.com/auth/calendar.readonly';
 const REDIRECT_URI = 'https://' + chrome.runtime.id + '.chromiumapp.org/';
 
 var currentDate = new Date();
 var eventDays = new Set();
+var eventDayColors = new Map(); // day -> color[]
 var allEvents = [];
 var filterMode = 'month';
 var enableEventAdd = false;
@@ -58,11 +59,6 @@ function renderFilterTabs() {
     tabs.appendChild(btn);
   });
   card.insertBefore(tabs, document.getElementById('events-container'));
-}
-
-// ===== ユーティリティ =====
-function escapeAttr(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
 // =============================================
@@ -177,7 +173,7 @@ async function fetchEventsForAccount(account) {
             end: endRaw ? new Date(endRaw) : null,
             isAllDay: !ev.start.dateTime,
             meetingUrl: meetingUrl,
-            calendarColor: cal.backgroundColor || account.color || '#6c63ff',
+            calendarColor: account.color || cal.backgroundColor || '#6c63ff',
             calendarName: cal.summary,
             source: 'oauth'
           };
@@ -329,9 +325,18 @@ function renderCalendar() {
     if (isToday) classes += ' today';
     if (dayOfWeek === 0) classes += ' sun';
     if (dayOfWeek === 6) classes += ' sat';
+    var dotsHtml = '';
+    if (hasEvent) {
+      var colors = eventDayColors.get(day) || [];
+      dotsHtml = '<div class="cal-dots">' +
+        colors.slice(0, 3).map(function(c) {
+          return '<span class="cal-dot" style="background:' + escapeAttr(c) + '"></span>';
+        }).join('') +
+        '</div>';
+    }
     html += '<div class="' + classes + '" data-day="' + day + '" data-year="' + year + '" data-month="' + month + '">' +
       '<span class="cal-date">' + day + '</span>' +
-      (hasEvent ? '<span class="cal-dot"></span>' : '') +
+      dotsHtml +
       '</div>';
   }
   html += '</div>';
@@ -537,7 +542,15 @@ function filterMonthEvents(events, targetDate) {
 function updateCalendarDots(targetDate) {
   var monthEvents = filterMonthEvents(allEvents, targetDate);
   eventDays.clear();
-  monthEvents.forEach(function(ev) { eventDays.add(ev.start.getDate()); });
+  eventDayColors.clear();
+  monthEvents.forEach(function(ev) {
+    var day = ev.start.getDate();
+    eventDays.add(day);
+    var color = ev.calendarColor || 'var(--accent)';
+    if (!eventDayColors.has(day)) eventDayColors.set(day, []);
+    var colors = eventDayColors.get(day);
+    if (!colors.includes(color)) colors.push(color);
+  });
 }
 
 // ===== 予定リスト描画（v1.3: カラードット + ソースバッジ） =====

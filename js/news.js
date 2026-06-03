@@ -72,8 +72,8 @@ async function loadNews() {
         : '';
       var imgSrc = thumbUrl || faviconUrl;
       var thumbHtml = imgSrc
-        ? '<img class="news-thumb" src="' + escapeNewsAttr(imgSrc) + '" alt=""' +
-          (thumbUrl && faviconUrl ? ' data-fallback="' + escapeNewsAttr(faviconUrl) + '"' : '') +
+        ? '<img class="news-thumb" src="' + escapeAttr(imgSrc) + '" alt=""' +
+          (thumbUrl && faviconUrl ? ' data-fallback="' + escapeAttr(faviconUrl) + '"' : '') +
           ' onerror="handleThumbError(this)">'
         : '';
 
@@ -83,8 +83,8 @@ async function loadNews() {
       html += '<div class="news-item">' +
         thumbHtml +
         '<div class="news-item-content">' +
-        '<a href="' + escapeNewsAttr(link) + '" target="_blank" rel="noopener">' + escapeNewsHtml(title) + '</a>' +
-        '<div class="news-source">' + escapeNewsHtml(sourceName) + (dateStr ? ' · ' + dateStr : '') + '</div>' +
+        '<a href="' + escapeAttr(link) + '" target="_blank" rel="noopener">' + escapeHtml(title) + '</a>' +
+        '<div class="news-source">' + escapeHtml(sourceName) + (dateStr ? ' · ' + dateStr : '') + '</div>' +
         '</div></div>';
     });
 
@@ -100,14 +100,6 @@ function getTagText(item, tagName) {
   var el = item.getElementsByTagName(tagName);
   if (!el || el.length === 0) return '';
   return el[0].textContent.trim();
-}
-
-function escapeNewsAttr(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
-
-function escapeNewsHtml(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
 function handleThumbError(img) {

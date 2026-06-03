@@ -1,6 +1,5 @@
 // ===== お気に入りサイト表示（New Tab側） =====
 // データ形式：フラット配列 [{id, name, url, category}, ...]
-// v1.2: デフォルトお気に入り削除、空配列フォールバック
 
 async function loadFavorites() {
   var container = document.getElementById('favorites-container');
@@ -16,6 +15,8 @@ async function loadFavorites() {
     return;
   }
 
+  var collapsedSections = JSON.parse(localStorage.getItem('favCollapsed') || '{}');
+
   // カテゴリ別にグルーピング
   var groups = {};
   items.forEach(function(fav) {
@@ -26,16 +27,20 @@ async function loadFavorites() {
 
   var html = '';
   Object.keys(groups).forEach(function(category) {
+    var isCollapsed = collapsedSections[category] === true;
     html += '<div class="fav-section">';
     if (category !== '未分類') {
-      html += '<h3>' + escapeHtml(category) + '</h3>';
+      html += '<div class="fav-section-header' + (isCollapsed ? ' collapsed' : '') + '" data-category="' + escapeAttr(category) + '">' +
+        '<span class="fav-section-toggle">▾</span>' +
+        '<span class="fav-section-label">' + escapeHtml(category) + '</span>' +
+        '</div>';
     }
-    html += '<div class="fav-grid">';
+    html += '<div class="fav-grid' + (isCollapsed ? ' fav-grid--hidden' : '') + '">';
 
     groups[category].forEach(function(site) {
       var iconUrl = getFaviconUrl(site.url);
-      html += '<a href="' + escapeHtml(site.url) + '" class="fav-item">' +
-        '<img src="' + escapeHtml(iconUrl) + '" alt="' + escapeHtml(site.name) + '" ' +
+      html += '<a href="' + escapeAttr(site.url) + '" class="fav-item">' +
+        '<img src="' + escapeAttr(iconUrl) + '" alt="' + escapeAttr(site.name) + '" ' +
         'onerror="this.style.display=\'none\'">' +
         '<span>' + escapeHtml(site.name || getDomainName(site.url)) + '</span>' +
         '</a>';
@@ -45,6 +50,18 @@ async function loadFavorites() {
   });
 
   container.innerHTML = html;
+
+  container.querySelectorAll('.fav-section-header').forEach(function(header) {
+    header.addEventListener('click', function() {
+      var cat = this.getAttribute('data-category');
+      var isNowCollapsed = this.classList.toggle('collapsed');
+      this.nextElementSibling.classList.toggle('fav-grid--hidden', isNowCollapsed);
+      var state = JSON.parse(localStorage.getItem('favCollapsed') || '{}');
+      if (isNowCollapsed) state[cat] = true;
+      else delete state[cat];
+      localStorage.setItem('favCollapsed', JSON.stringify(state));
+    });
+  });
 }
 
 // ===== ユーティリティ =====
@@ -63,10 +80,4 @@ function getDomainName(url) {
   } catch(e) {
     return url;
   }
-}
-
-function escapeHtml(str) {
-  var div = document.createElement('div');
-  div.textContent = str || '';
-  return div.innerHTML;
 }

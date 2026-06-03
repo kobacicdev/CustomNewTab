@@ -17,9 +17,9 @@ function renderSearchArea(engines) {
   var html = '';
   enabled.forEach(function(engine) {
     html += '<div class="search-box">' +
-      '<form data-url="' + escapeSearchAttr(engine.url) + '">' +
-      '<img src="' + escapeSearchAttr(engine.icon) + '" alt="' + escapeSearchAttr(engine.name) + '" class="search-icon" onerror="this.style.display=\'none\'">' +
-      '<input type="text" placeholder="' + escapeSearchAttr(engine.name) + ' で検索...">' +
+      '<form data-url="' + escapeAttr(engine.url) + '">' +
+      '<img src="' + escapeAttr(engine.icon) + '" alt="' + escapeAttr(engine.name) + '" class="search-icon" onerror="this.style.display=\'none\'">' +
+      '<input type="text" placeholder="' + escapeAttr(engine.name) + ' で検索...">' +
       '</form></div>';
   });
   area.innerHTML = html;
@@ -31,7 +31,4 @@ function renderSearchArea(engines) {
       window.location.href = this.getAttribute('data-url').replace('%s', encodeURIComponent(q));
     });
   });
-}
-function escapeSearchAttr(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }

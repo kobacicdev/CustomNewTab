@@ -26,7 +26,8 @@ function initOptionsPanel() {
   document.getElementById('add-fav-form').addEventListener('submit', handleAddFavorite);
   document.getElementById('pick-from-tabs-btn').addEventListener('click', toggleTabPicker);
   document.getElementById('save-news-source').addEventListener('click', saveNewsSource);
-  document.getElementById('add-engine-btn').addEventListener('click', handleAddEngine);
+  var addEngineBtn = document.getElementById('add-engine-btn');
+  if (addEngineBtn) addEngineBtn.addEventListener('click', handleAddEngine);
   document.getElementById('news-source').addEventListener('change', function() {
     document.getElementById('custom-rss-group').style.display = this.value==='custom'?'':'none';
   });
@@ -34,11 +35,20 @@ function initOptionsPanel() {
   document.querySelectorAll('.layout-col-count-btn').forEach(function(btn) {
     btn.addEventListener('click', function() {
       columnCount = parseInt(this.getAttribute('data-count'));
+      // 列数を超えているウィジェットを最後の有効列に移動
+      var colNames = ['left', 'center', 'right'];
+      widgetSettings.forEach(function(widget) {
+        if (widget.visible) {
+          var idx = colNames.indexOf(widget.column);
+          if (idx < 0 || idx >= columnCount) widget.visible = false;
+        }
+      });
       updateColCountUI(columnCount);
-      chrome.storage.sync.set({ columnCount: columnCount, columnWidths: '1-1-1' }, function() {
+      chrome.storage.sync.set({ columnCount: columnCount, columnWidths: '1-1-1', widgetSettings: widgetSettings }, function() {
         showStatus(columnCount + '列レイアウトに変更しました');
       });
       applyZoneWidths('1-1-1');
+      renderWidgetTable();
       renderLayoutPreview();
     });
   });
@@ -55,7 +65,6 @@ function initOptionsPanel() {
   });
 }
 // ===== ユーティリティ =====
-function escapeHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function showStatus(msg){var el=document.getElementById('status-msg');el.textContent=msg;el.classList.add('show');setTimeout(function(){el.classList.remove('show');},2000);}
 function showModal(message,onConfirm,confirmLabel){
   var overlay=document.getElementById('modal-overlay');
@@ -307,19 +316,29 @@ function requestHostAccess(url,cb){
   chrome.permissions.request({origins:[o]},function(g){cb(!!g);});
 }
 // ===== Googleドライブ =====
-const DRIVE_CLIENT_ID = 'YOUR_CLIENT_ID.apps.googleusercontent.com';
+const DRIVE_CLIENT_ID = '426478709632-vmchoj67r7bepje4tatk893f0kuhio7u.apps.googleusercontent.com';
 const DRIVE_SCOPES   = 'https://www.googleapis.com/auth/drive.metadata.readonly';
 const DRIVE_REDIRECT = 'https://' + chrome.runtime.id + '.chromiumapp.org/';
 const DRIVE_COLOR_PRESETS = ['#4285f4', '#6c63ff', '#4caf50', '#f9c74f', '#e8853d', '#ff6b6b'];
 
 function initDriveSection() {
   loadDriveAccounts();
+  loadDriveDefaultTab();
   document.getElementById('add-drive-btn').addEventListener('click', handleAddDriveAccount);
-  document.getElementById('drive-color-presets').addEventListener('click', function(e) {
-    var dot = e.target.closest('.cal-preset-dot');
-    if (!dot) return;
-    this.querySelectorAll('.cal-preset-dot').forEach(function(d) { d.classList.remove('active'); });
-    dot.classList.add('active');
+  document.querySelectorAll('input[name="drive-default-tab"]').forEach(function(radio) {
+    radio.addEventListener('change', function() {
+      chrome.storage.sync.set({ driveDefaultTab: this.value }, function() {
+        showStatus('デフォルトタブを変更しました');
+      });
+    });
+  });
+}
+
+function loadDriveDefaultTab() {
+  chrome.storage.sync.get('driveDefaultTab', function(data) {
+    var val = data.driveDefaultTab || 'recent';
+    var radio = document.querySelector('input[name="drive-default-tab"][value="' + val + '"]');
+    if (radio) radio.checked = true;
   });
 }
 
@@ -338,8 +357,6 @@ function saveDriveAccounts(accounts, cb) {
 
 async function handleAddDriveAccount() {
   var statusEl = document.getElementById('drive-add-status');
-  var activeDot = document.querySelector('#drive-color-presets .cal-preset-dot.active');
-  var color = activeDot ? activeDot.getAttribute('data-color') : '#4285f4';
   var stored = await new Promise(function(res) { chrome.storage.sync.get('driveAccounts', function(d) { res(d.driveAccounts || []); }); });
   if (stored.length >= 1) {
     statusEl.textContent = '登録済みのアカウントを削除してから追加してください。';
@@ -350,7 +367,7 @@ async function handleAddDriveAccount() {
     'client_id=' + encodeURIComponent(DRIVE_CLIENT_ID) +
     '&redirect_uri=' + encodeURIComponent(DRIVE_REDIRECT) +
     '&response_type=token' +
-    '&scope=' + encodeURIComponent(DRIVE_SCOPES);
+    '&scope=' + encodeURIComponent(DRIVE_SCOPES + ' https://www.googleapis.com/auth/userinfo.email');
   chrome.identity.launchWebAuthFlow({ url: authUrl, interactive: true }, async function(redirectUrl) {
     if (chrome.runtime.lastError || !redirectUrl) {
       statusEl.textContent = '認証がキャンセルされました。';
@@ -365,10 +382,24 @@ async function handleAddDriveAccount() {
     });
     var profile = await profileRes.json();
     var email = profile.email || 'unknown@gmail.com';
-    var accounts = [{ email: email, token: token, expiresAt: Date.now() + expiresIn * 1000, color: color }];
+    var accounts = [{ email: email, token: token, expiresAt: Date.now() + expiresIn * 1000 }];
     saveDriveAccounts(accounts, function() {
       showStatus('「' + email + '」を追加しました');
       statusEl.textContent = '';
+      // Drive ウィジェットを自動で表示ONにする
+      chrome.storage.sync.get('widgetSettings', function(wsData) {
+        var ws = wsData.widgetSettings || DEFAULT_WIDGETS.map(function(d) { return Object.assign({}, d); });
+        var w = ws.find(function(w) { return w.id === 'drive'; });
+        if (w && !w.visible) {
+          w.visible = true;
+          chrome.storage.sync.set({ widgetSettings: ws }, function() {
+            if (typeof applyLayoutSettings === 'function') applyLayoutSettings();
+            if (typeof loadDriveWidget === 'function') loadDriveWidget();
+          });
+        } else {
+          if (typeof loadDriveWidget === 'function') loadDriveWidget();
+        }
+      });
     });
   });
 }
@@ -384,35 +415,17 @@ function renderDriveAccountList(accounts) {
   accounts.forEach(function(account) {
     var isExpired = account.expiresAt && account.expiresAt < Date.now();
     var statusLabel = isExpired
-      ? '<span style="font-size:11px;color:var(--danger)">トークン期限切れ（再ログインが必要）</span>'
-      : '<span style="font-size:11px;color:var(--text-secondary)">認証済み</span>';
-    html += '<div class="cal-item">';
-    html += '<span class="cal-color-dot" style="background:' + escapeHtml(account.color) + '"></span>';
-    html += '<div style="flex:1;min-width:0">';
-    html += '<div style="font-size:13px;color:var(--text-heading);font-weight:600">' + escapeHtml(account.email) + '</div>';
+      ? '<span class="account-status expired">トークン期限切れ（再ログインが必要）</span>'
+      : '<span class="account-status ok">✓ 認証済み</span>';
+    html += '<div class="account-card">';
+    html += '<div class="account-info">';
+    html += '<div class="account-email">' + escapeHtml(account.email) + '</div>';
     html += statusLabel;
     html += '</div>';
-    html += '<div class="cal-item-actions">';
-    html += '<div class="cal-color-presets drive-item-presets" data-email="' + escapeHtml(account.email) + '">';
-    DRIVE_COLOR_PRESETS.forEach(function(pc) {
-      html += '<span class="cal-preset-dot' + (account.color === pc ? ' active' : '') + '" data-color="' + pc + '" style="background:' + pc + '"></span>';
-    });
+    html += '<button class="btn btn-delete" data-del-drive="' + escapeAttr(account.email) + '">×</button>';
     html += '</div>';
-    html += '<button class="btn btn-delete" data-del-drive="' + escapeHtml(account.email) + '">×</button>';
-    html += '</div></div>';
   });
   container.innerHTML = html;
-  container.querySelectorAll('.drive-item-presets').forEach(function(group) {
-    group.addEventListener('click', function(e) {
-      var dot = e.target.closest('.cal-preset-dot');
-      if (!dot) return;
-      chrome.storage.sync.get('driveAccounts', function(data) {
-        var accs = data.driveAccounts || [];
-        var acc = accs.find(function(a) { return a.email === group.getAttribute('data-email'); });
-        if (acc) { acc.color = dot.getAttribute('data-color'); saveDriveAccounts(accs, function() { showStatus('カラーを変更しました'); }); }
-      });
-    });
-  });
   container.querySelectorAll('[data-del-drive]').forEach(function(btn) {
     btn.addEventListener('click', function() {
       var email = this.getAttribute('data-del-drive');
@@ -424,7 +437,7 @@ function renderDriveAccountList(accounts) {
 }
 
 // ===== v1.3: Google Calendar OAuth + iCal URL ハイブリッド管理 =====
-const OPTIONS_CLIENT_ID = 'YOUR_CLIENT_ID.apps.googleusercontent.com';
+const OPTIONS_CLIENT_ID = '426478709632-vmchoj67r7bepje4tatk893f0kuhio7u.apps.googleusercontent.com';
 const OPTIONS_SCOPES    = 'https://www.googleapis.com/auth/calendar.readonly';
 const OPTIONS_REDIRECT  = 'https://' + chrome.runtime.id + '.chromiumapp.org/';
 const CAL_COLOR_PRESETS = ['#6c63ff', '#3d8bff', '#4caf50', '#f9c74f', '#e8853d', '#ff6b6b'];
@@ -479,7 +492,7 @@ async function handleAddGcalAccount() {
     'client_id=' + encodeURIComponent(OPTIONS_CLIENT_ID) +
     '&redirect_uri=' + encodeURIComponent(OPTIONS_REDIRECT) +
     '&response_type=token' +
-    '&scope=' + encodeURIComponent(OPTIONS_SCOPES);
+    '&scope=' + encodeURIComponent(OPTIONS_SCOPES + ' https://www.googleapis.com/auth/userinfo.email');
   chrome.identity.launchWebAuthFlow({ url: authUrl, interactive: true }, async function(redirectUrl) {
     if (chrome.runtime.lastError || !redirectUrl) {
       statusEl.textContent = '認証がキャンセルされました。';
@@ -522,21 +535,22 @@ function renderGcalAccountList(accounts) {
     var expiry = account.expiresAt ? new Date(account.expiresAt) : null;
     var isExpired = expiry && expiry < new Date();
     var statusLabel = isExpired
-      ? '<span style="font-size:11px;color:var(--danger)">トークン期限切れ（自動リフレッシュ対象）</span>'
-      : '<span style="font-size:11px;color:var(--text-secondary)">認証済み</span>';
-    html += '<div class="cal-item" data-email="' + escapeHtml(account.email) + '">';
-    html += '<span class="cal-color-dot" style="background:' + escapeHtml(account.color) + '"></span>';
-    html += '<div style="flex:1;min-width:0">';
-    html += '<div style="font-size:13px;color:var(--text-heading);font-weight:600">' + escapeHtml(account.email) + '</div>';
+      ? '<span class="account-status expired">トークン期限切れ（自動リフレッシュ対象）</span>'
+      : '<span class="account-status ok">✓ 認証済み</span>';
+    var initial = (account.email || '?')[0].toUpperCase();
+    html += '<div class="account-card" data-email="' + escapeAttr(account.email) + '" style="border-left-color:' + escapeAttr(account.color) + '">';
+    html += '<div class="account-avatar" style="background:' + escapeAttr(account.color) + '">' + escapeHtml(initial) + '</div>';
+    html += '<div class="account-info">';
+    html += '<div class="account-email">' + escapeHtml(account.email) + '</div>';
     html += statusLabel;
     html += '</div>';
     html += '<div class="cal-item-actions">';
-    html += '<div class="cal-color-presets cal-item-presets" data-email="' + escapeHtml(account.email) + '">';
+    html += '<div class="cal-color-presets cal-item-presets" data-email="' + escapeAttr(account.email) + '">';
     CAL_COLOR_PRESETS.forEach(function(pc) {
       html += '<span class="cal-preset-dot' + (account.color===pc?' active':'') + '" data-color="' + pc + '" style="background:' + pc + '"></span>';
     });
     html += '</div>';
-    html += '<button class="btn btn-delete" data-del-email="' + escapeHtml(account.email) + '">×</button>';
+    html += '<button class="btn btn-delete" data-del-email="' + escapeAttr(account.email) + '">×</button>';
     html += '</div></div>';
   });
   container.innerHTML = html;
@@ -783,7 +797,7 @@ var DEFAULT_WIDGETS = [
   { id: 'calendar',  label: 'カレンダー',    visible: true,  column: 'left',   height: 1 },
   { id: 'favorites', label: 'お気に入り',    visible: true,  column: 'center', height: 1 },
   { id: 'news',      label: 'ニュース',      visible: true,  column: 'right',  height: 1 },
-  { id: 'drive',     label: 'Googleドライブ', visible: false, column: 'right',  height: 1 }
+  { id: 'drive',     label: 'Googleドライブ', visible: true,  column: 'right',  height: 1 }
 ];
 var widgetSettings = [];
 function loadWidgetSettings() {
@@ -1305,8 +1319,10 @@ function saveSearchEngines(cb) {
 function getEnabledCount() { return searchEngines.filter(function(e) { return e.enabled; }).length; }
 function renderSearchEngineList() {
   var container = document.getElementById('search-engine-list');
+  if (!container) return;
   var cnt = getEnabledCount();
-  document.getElementById('engine-enabled-count').textContent = cnt + ' / ' + MAX_ENABLED + ' 有効';
+  var countEl = document.getElementById('engine-enabled-count');
+  if (countEl) countEl.textContent = cnt + ' / ' + MAX_ENABLED + ' 有効';
   var html = '';
   searchEngines.forEach(function(engine) {
     var tA = engine.enabled ? ' active' : '';

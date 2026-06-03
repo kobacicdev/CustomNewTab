@@ -7,29 +7,30 @@
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/options.css">
   <script src="js/theme.js"></script>
+  <script src="js/utils.js"></script>
 </head>
 <body>
   <div class="container">
     <section class="search-area" id="search-area"></section>
-<div class="main-content" id="main-content">
+    <div class="main-content" id="main-content">
       <div class="left-column" id="col-left">
         <section class="card calendar-embed" data-widget="calendar">
           <div id="calendar-container"></div>
         </section>
         <section class="card events-list" data-widget="calendar">
-          <div id="events-container">
+          <div id="events-container" class="widget-scroll">
             <p class="loading">読み込み中...</p>
           </div>
         </section>
       </div>
       <div class="center-column" id="col-center">
         <section class="card favorites" data-widget="favorites">
-          <div id="favorites-container"></div>
+          <div id="favorites-container" class="widget-scroll"></div>
         </section>
       </div>
       <div class="right-column" id="col-right">
         <section class="card news" data-widget="news">
-          <div id="news-container">
+          <div id="news-container" class="widget-scroll">
             <p class="loading">読み込み中...</p>
           </div>
         </section>
@@ -247,21 +248,19 @@
               <h2 class="section-title">Googleドライブ</h2>
               <p class="section-desc">Googleアカウントでログインして、最近のファイルとスター付きファイルをNew Tabに表示します。</p>
               <div class="add-form">
-                <div class="form-row">
-                  <div class="form-group">
-                    <label>カラー</label>
-                    <div class="cal-color-presets" id="drive-color-presets">
-                      <span class="cal-preset-dot active" data-color="#4285f4" style="background:#4285f4"></span>
-                      <span class="cal-preset-dot" data-color="#6c63ff" style="background:#6c63ff"></span>
-                      <span class="cal-preset-dot" data-color="#4caf50" style="background:#4caf50"></span>
-                      <span class="cal-preset-dot" data-color="#f9c74f" style="background:#f9c74f"></span>
-                      <span class="cal-preset-dot" data-color="#e8853d" style="background:#e8853d"></span>
-                      <span class="cal-preset-dot" data-color="#ff6b6b" style="background:#ff6b6b"></span>
-                    </div>
-                  </div>
-                </div>
                 <button type="button" class="btn btn-add" id="add-drive-btn">Googleアカウントでログイン</button>
                 <div id="drive-add-status" class="ical-status"></div>
+              </div>
+              <div class="add-form" style="margin-bottom:20px">
+                <h3 style="font-size:14px;color:var(--text-heading);margin-bottom:12px">デフォルト表示</h3>
+                <div style="display:flex;gap:16px">
+                  <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-primary);cursor:pointer">
+                    <input type="radio" name="drive-default-tab" value="recent"> 最近
+                  </label>
+                  <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-primary);cursor:pointer">
+                    <input type="radio" name="drive-default-tab" value="starred"> ★ スター付き
+                  </label>
+                </div>
               </div>
               <div class="cal-list-header">
                 <h4>登録済みアカウント</h4>
@@ -412,7 +411,7 @@
   <script src="js/search.js"></script>
   <script src="js/news.js"></script>
   <script src="js/drive.js"></script>
-<script src="js/options.js"></script>
+  <script src="js/options.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>

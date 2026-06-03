@@ -6,6 +6,7 @@
   <title>設定 - Custom New Tab</title>
   <link rel="stylesheet" href="css/options.css">
   <script src="js/theme.js"></script>
+  <script src="js/utils.js"></script>
 </head>
 <body>
   <div class="options-wrapper">
@@ -23,11 +24,15 @@
             <span class="sidebar-icon">□</span>
             <span class="sidebar-label">カレンダー</span>
           </li>
+          <li class="sidebar-item" data-section="drive">
+            <span class="sidebar-icon">△</span>
+            <span class="sidebar-label">Googleドライブ</span>
+          </li>
           <li class="sidebar-item" data-section="news">
             <span class="sidebar-icon">☰</span>
             <span class="sidebar-label">ニュース</span>
           </li>
-<li class="sidebar-item" data-section="layout">
+          <li class="sidebar-item" data-section="layout">
             <span class="sidebar-icon">⊞</span>
             <span class="sidebar-label">レイアウト</span>
           </li>
@@ -65,7 +70,11 @@
                 </div>
               </div>
             </div>
-            <button type="submit" class="btn btn-add">追加</button>
+            <div class="fav-form-actions">
+              <button type="submit" class="btn btn-add">追加</button>
+              <button type="button" class="btn btn-inline-cancel" id="pick-from-tabs-btn">開いているタブから選択</button>
+            </div>
+            <div id="tab-picker" class="tab-picker" style="display:none"></div>
           </form>
           <div class="fav-list-header">
             <h3>登録済みサイト</h3>
@@ -170,6 +179,30 @@
             </ol>
           </div>
         </div>
+        <!-- Googleドライブ -->
+        <div class="settings-section" id="section-drive">
+          <h2 class="section-title">Googleドライブ</h2>
+          <p class="section-desc">Googleアカウントでログインして、最近のファイルとスター付きファイルをNew Tabに表示します。</p>
+          <div class="add-form">
+            <button type="button" class="btn btn-add" id="add-drive-btn">Googleアカウントでログイン</button>
+            <div id="drive-add-status" class="ical-status"></div>
+          </div>
+          <div class="add-form" style="margin-bottom:20px">
+            <h3 style="font-size:14px;color:var(--text-heading);margin-bottom:12px">デフォルト表示</h3>
+            <div style="display:flex;gap:16px">
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-primary);cursor:pointer">
+                <input type="radio" name="drive-default-tab" value="recent"> 最近
+              </label>
+              <label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-primary);cursor:pointer">
+                <input type="radio" name="drive-default-tab" value="starred"> ★ スター付き
+              </label>
+            </div>
+          </div>
+          <div class="cal-list-header">
+            <h4>登録済みアカウント</h4>
+          </div>
+          <div id="drive-account-list" class="calendar-list"></div>
+        </div>
         <!-- ニュース -->
         <div class="settings-section" id="section-news">
           <h2 class="section-title">ニュース</h2>
@@ -198,7 +231,7 @@
             <div id="news-status" class="ical-status"></div>
           </div>
         </div>
-<!-- v1.3: レイアウト -->
+        <!-- レイアウト -->
         <div class="settings-section" id="section-layout">
           <h2 class="section-title">レイアウト</h2>
           <p class="section-desc">表示するウィジェットと配置カラムを設定します。</p>
@@ -267,6 +300,7 @@
     <div id="status-msg" class="status-msg"></div>
   </div>
   <script src="js/options.js"></script>
+  <script>initOptionsPanel();</script>
 </body>
 </html>
 	

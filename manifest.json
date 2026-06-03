@@ -1,10 +1,11 @@
 {
   "manifest_version": 3,
   "name": "Custom New Tab",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAt3QcNj6hdgUo868+M8Dw31QTa7jcT7PRsIrt87gXTmDXDAs2gj9gpPU0a2IDEq8FBjVJIw6Wix4UiEVrAa4ocxjCsSrLmsQB9bcCWb9uvSJshenB7ruaNpafo7di+At7M/1je17wiiaKGLtdAYEBetscN8LyARWEKwUdoRcxnuNIr+pBhO9HhgQ0ew187v3KkJGQSfAW82gvEw68QiMYRfaZLipJcqSQTyl8bejm3Q76IeMtB/M/WO7ApLPLFC9XPdsRK89HP7bu0iA68bMDvzA2SzTOZf6PPEKw96UgzfRdXTPnLKp/8qxgI2aOk3wP9q7vxu4pM8hOyI989E9ylQIDAQAB",
   "version": "1.0.0",
   "description": "新しいタブを、あなただけのダッシュボードに。",
   "oauth2": {
-    "client_id": "76530077604-2ocp8a9jtpchr5shnovoj0n6evpe3ppn.apps.googleusercontent.com",
+    "client_id": "426478709632-vmchoj67r7bepje4tatk893f0kuhio7u.apps.googleusercontent.com",
     "scopes": [
       "https://www.googleapis.com/auth/calendar.readonly"
     ]
@@ -15,7 +16,8 @@
     "tabs"
   ],
   "host_permissions": [
-    "https://news.google.com/*"
+    "https://news.google.com/*",
+    "https://www.googleapis.com/*"
   ],
   "optional_host_permissions": [
     "*://*/*"
