@@ -95,7 +95,7 @@ async function fetchDriveFiles(account) {
 
   var isStarred = driveCurrentTab === 'starred';
   var params = new URLSearchParams({
-    pageSize: '15',
+    pageSize: '20',
     fields: 'files(id,name,mimeType,webViewLink,modifiedTime)',
     orderBy: isStarred ? 'modifiedTime desc' : 'viewedByMeTime desc'
   });
