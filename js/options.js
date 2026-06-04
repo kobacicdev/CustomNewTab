@@ -170,6 +170,11 @@ function toggleTabPicker() {
   if (picker.style.display !== 'none') { picker.style.display = 'none'; return; }
   picker.innerHTML = '<p class="loading">読み込み中...</p>';
   picker.style.display = '';
+  chrome.permissions.request({ permissions: ['tabs'] }, function(granted) {
+    if (!granted) {
+      picker.innerHTML = '<p class="empty-msg" style="padding:12px">タブ一覧の取得には権限が必要です</p>';
+      return;
+    }
   chrome.tabs.query({}, function(tabs) {
     var filtered = tabs.filter(function(t) {
       return t.url && !t.url.startsWith('chrome://') && !t.url.startsWith('chrome-extension://');
@@ -197,6 +202,7 @@ function toggleTabPicker() {
         document.getElementById('fav-name').focus();
       });
     });
+  });
   });
 }
 
@@ -1243,6 +1249,11 @@ function handleExport() {
   chrome.storage.sync.get(exportKeys, function(data) {
     if (data.gcalAccounts) {
       data.gcalAccounts = data.gcalAccounts.map(function(a) {
+        return { email: a.email, color: a.color };
+      });
+    }
+    if (data.driveAccounts) {
+      data.driveAccounts = data.driveAccounts.map(function(a) {
         return { email: a.email, color: a.color };
       });
     }

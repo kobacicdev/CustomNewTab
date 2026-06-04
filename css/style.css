@@ -247,7 +247,7 @@ body {
 
 /* ===== お気に入り ===== */
 .fav-section { margin-bottom:16px; }
-.fav-section-header { display:flex; align-items:center; gap:6px; cursor:pointer; font-size:13px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:1px; margin-bottom:8px; padding-bottom:4px; border-bottom:1px solid var(--divider); user-select:none; }
+.fav-section-header { display:flex; align-items:center; gap:6px; cursor:pointer; font-size:13px; color:var(--text-primary); text-transform:uppercase; letter-spacing:1px; margin-bottom:8px; padding-bottom:4px; border-bottom:1px solid var(--divider); user-select:none; }
 .fav-section-header:hover { color:var(--text-primary); }
 .fav-section-toggle { font-size:11px; transition:transform 0.2s; flex-shrink:0; }
 .fav-section-header.collapsed .fav-section-toggle { transform:rotate(-90deg); }
@@ -265,7 +265,7 @@ body {
 .news-item a { color: var(--text-link); text-decoration:none; font-size:14px; line-height:1.5; }
 .news-item a:hover { color: var(--text-heading); text-decoration:underline; }
 .news-source { font-size:11px; color: var(--text-muted); margin-top:4px; }
-.loading { color: var(--text-muted); font-size:13px; }
+.loading { color: var(--text-secondary); font-size:13px; }
 
 /* ===== Googleドライブウィジェット ===== */
 #drive-container { display:flex; flex-direction:column; height:100%; }
@@ -284,7 +284,7 @@ body {
 .drive-file:hover { background: var(--hover-bg); }
 .drive-file-icon { font-size:14px; flex-shrink:0; line-height:1; display:flex; align-items:center; }
 .drive-file-info { display:flex; flex-direction:column; gap:1px; flex:1; min-width:0; }
-.drive-file-date { font-size:10px; color:var(--text-muted); }
+.drive-file-date { font-size:10px; color:var(--text-secondary); }
 .dv-icon { display:inline-flex; align-items:center; justify-content:center; min-width:26px; height:20px; padding:0 4px; border-radius:3px; font-size:8px; font-weight:800; color:#fff; flex-shrink:0; letter-spacing:-0.3px; line-height:1; }
 .drive-file-name { font-size:12px; color: var(--text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; min-width:0; }
 .drive-file:hover .drive-file-name { color: var(--text-heading); }

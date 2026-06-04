@@ -152,7 +152,7 @@ async function fetchEventsForAccount(account) {
   var calList = await calListRes.json();
 
   var events = [];
-  var calendars = (calList.items || []).filter(function(c) { return c.selected !== false; });
+  var calendars = (calList.items || []).filter(function(c) { return c.accessRole === 'owner'; });
 
   var fetches = calendars.map(function(cal) {
     var url = 'https://www.googleapis.com/calendar/v3/calendars/' +
@@ -221,7 +221,7 @@ async function fetchAllSources(renderList) {
   if (oauthAccounts.length === 0 && enabledIcals.length === 0) {
     if (renderList) {
       document.getElementById('events-container').innerHTML =
-        '<p class="loading">設定画面でGoogleアカウントまたはiCal URLを追加してください。</p>';
+        '<p class="loading">カレンダーが連携されていません。<br>設定画面から以下のいずれかを追加してください：<br>・Googleアカウントでログイン<br>・iCal URLを追加</p>';
     }
     return;
   }
