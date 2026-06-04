@@ -330,12 +330,18 @@ const DRIVE_COLOR_PRESETS = ['#4285f4', '#6c63ff', '#4caf50', '#f9c74f', '#e8853
 function initDriveSection() {
   loadDriveAccounts();
   loadDriveDefaultTab();
+  loadDrivePageSize();
   document.getElementById('add-drive-btn').addEventListener('click', handleAddDriveAccount);
   document.querySelectorAll('input[name="drive-default-tab"]').forEach(function(radio) {
     radio.addEventListener('change', function() {
       chrome.storage.sync.set({ driveDefaultTab: this.value }, function() {
         showStatus('デフォルトタブを変更しました');
       });
+    });
+  });
+  document.getElementById('drive-page-size').addEventListener('change', function() {
+    chrome.storage.sync.set({ drivePageSize: parseInt(this.value) }, function() {
+      showStatus('取得件数を変更しました');
     });
   });
 }
@@ -345,6 +351,14 @@ function loadDriveDefaultTab() {
     var val = data.driveDefaultTab || 'recent';
     var radio = document.querySelector('input[name="drive-default-tab"][value="' + val + '"]');
     if (radio) radio.checked = true;
+  });
+}
+
+function loadDrivePageSize() {
+  chrome.storage.sync.get('drivePageSize', function(data) {
+    var val = String(data.drivePageSize || 20);
+    var select = document.getElementById('drive-page-size');
+    if (select) select.value = val;
   });
 }
 

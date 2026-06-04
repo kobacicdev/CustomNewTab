@@ -93,9 +93,13 @@ async function fetchDriveFiles(account) {
     return;
   }
 
+  var pageSize = await new Promise(function(res) {
+    chrome.storage.sync.get('drivePageSize', function(d) { res(d.drivePageSize || 20); });
+  });
+
   var isStarred = driveCurrentTab === 'starred';
   var params = new URLSearchParams({
-    pageSize: '20',
+    pageSize: String(pageSize),
     fields: 'files(id,name,mimeType,webViewLink,modifiedTime)',
     orderBy: isStarred ? 'modifiedTime desc' : 'viewedByMeTime desc'
   });
