@@ -230,7 +230,7 @@ body {
 /* ===== 予定リスト ===== */
 .event-item { display:flex; align-items:flex-start; padding:10px 0; border-bottom:1px solid var(--divider); }
 .event-time { min-width:110px; font-size:13px; color: var(--text-secondary); font-weight:600; }
-.event-title { font-size:14px; flex:1; }
+.event-title { font-size:13px; flex:1; }
 .widget-scroll { flex:1; overflow-y:auto; padding-right:4px; }
 .widget-scroll::-webkit-scrollbar { width:4px; }
 .widget-scroll::-webkit-scrollbar-track { background:transparent; }
