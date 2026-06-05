@@ -104,6 +104,20 @@ body { font-family:'Segoe UI','Noto Sans JP',sans-serif; background: var(--bg-gr
 .options-header h1 { font-size:20px; color: var(--text-heading); }
 .options-body { display:flex; flex:1; overflow:hidden; }
 
+/* スクロールバー */
+.sidebar::-webkit-scrollbar,
+.main-pane::-webkit-scrollbar,
+.tab-picker::-webkit-scrollbar { width:4px; }
+.sidebar::-webkit-scrollbar-track,
+.main-pane::-webkit-scrollbar-track,
+.tab-picker::-webkit-scrollbar-track { background:transparent; }
+.sidebar::-webkit-scrollbar-thumb,
+.main-pane::-webkit-scrollbar-thumb,
+.tab-picker::-webkit-scrollbar-thumb { background:var(--input-border); border-radius:4px; }
+.sidebar::-webkit-scrollbar-thumb:hover,
+.main-pane::-webkit-scrollbar-thumb:hover,
+.tab-picker::-webkit-scrollbar-thumb:hover { background:var(--text-muted); }
+
 /* サイドバー */
 .sidebar { width:200px; flex-shrink:0; border-right:1px solid var(--divider); padding:16px 0; overflow-y:auto; }
 .sidebar-list { list-style:none; }
@@ -168,8 +182,7 @@ body { font-family:'Segoe UI','Noto Sans JP',sans-serif; background: var(--bg-gr
 /* ===== タブピッカー ===== */
 .fav-form-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
 .tab-picker { margin-top:8px; border:1px solid var(--card-border); border-radius:8px; overflow:hidden; max-height:220px; overflow-y:auto; background: var(--card-bg); }
-.tab-picker::-webkit-scrollbar { width:4px; }
-.tab-picker::-webkit-scrollbar-thumb { background: var(--divider); border-radius:2px; }
+
 .tab-item { display:flex; align-items:center; gap:10px; padding:8px 12px; cursor:pointer; transition:background 0.15s; }
 .tab-item:hover { background: var(--hover-bg); }
 .tab-favicon { width:16px; height:16px; border-radius:2px; flex-shrink:0; font-size:14px; }
