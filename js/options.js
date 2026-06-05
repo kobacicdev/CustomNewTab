@@ -339,7 +339,8 @@ function initDriveSection() {
       });
     });
   });
-  document.getElementById('drive-page-size').addEventListener('change', function() {
+  var pageSizeEl = document.getElementById('drive-page-size');
+  if (pageSizeEl) pageSizeEl.addEventListener('change', function() {
     chrome.storage.sync.set({ drivePageSize: parseInt(this.value) }, function() {
       showStatus('取得件数を変更しました');
     });
