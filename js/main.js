@@ -1,7 +1,6 @@
 document.addEventListener('DOMContentLoaded', function() {
   loadCalendarEmbed();
   loadFavorites();
-  loadSearchArea();
   loadNews();
   loadDriveWidget();
   applyLayoutSettings();

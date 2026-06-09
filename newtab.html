@@ -11,7 +11,6 @@
 </head>
 <body>
   <div class="container">
-    <section class="search-area" id="search-area"></section>
     <div class="main-content" id="main-content">
       <div class="left-column" id="col-left">
         <section class="card calendar-embed" data-widget="calendar">
@@ -103,10 +102,6 @@
               <li class="sidebar-item" data-section="news">
                 <span class="sidebar-icon">☰</span>
                 <span class="sidebar-label">ニュース</span>
-              </li>
-              <li class="sidebar-item" data-section="search">
-                <span class="sidebar-icon">⊙</span>
-                <span class="sidebar-label">検索</span>
               </li>
               <li class="sidebar-item" data-section="layout">
                 <span class="sidebar-icon">⊞</span>
@@ -307,40 +302,10 @@
                 <div id="news-status" class="ical-status"></div>
               </div>
             </div>
-            <!-- 検索 -->
-            <div class="settings-section" id="section-search">
-              <h2 class="section-title">検索</h2>
-              <p class="section-desc">New Tabに表示する検索バーを管理します。最大4つまで有効にできます。</p>
-              <div class="search-preview-wrapper">
-                <h3>プレビュー</h3>
-                <div class="search-preview-area" id="search-preview-area"></div>
-              </div>
-              <div class="engine-list-header">
-                <h3>検索バー一覧</h3>
-                <span class="engine-enabled-count" id="engine-enabled-count">0 / 4 有効</span>
-              </div>
-              <div id="search-engine-list" class="engine-list"></div>
-              <div class="add-form" style="margin-top:20px">
-                <h3 style="font-size:14px;color:var(--text-heading);margin-bottom:12px">カスタム検索バー追加</h3>
-                <div class="form-row">
-                  <div class="form-group">
-                    <label for="engine-name">エンジン名</label>
-                    <input type="text" id="engine-name" placeholder="例: Yahoo">
-                  </div>
-                  <div class="form-group">
-                    <label for="engine-url">検索URL</label>
-                    <input type="text" id="engine-url" placeholder="例: https://search.yahoo.co.jp/search?p=%s">
-                    <span class="form-hint">%s の箇所に検索語が入ります</span>
-                  </div>
-                </div>
-                <button type="button" class="btn btn-add" id="add-engine-btn">追加</button>
-              </div>
-            </div>
             <!-- レイアウト -->
             <div class="settings-section" id="section-layout">
               <h2 class="section-title">レイアウト</h2>
               <p class="section-desc">表示するウィジェットと配置カラムを設定します。</p>
-              <div class="layout-preview-box" id="layout-preview"></div>
               <div class="add-form">
                 <div class="layout-section-header" style="margin-bottom:8px">
                   <h3>列数</h3>
@@ -420,7 +385,6 @@
 
   <script src="js/calendar.js"></script>
   <script src="js/favorites.js"></script>
-  <script src="js/search.js"></script>
   <script src="js/news.js"></script>
   <script src="js/drive.js"></script>
   <script src="js/options.js"></script>

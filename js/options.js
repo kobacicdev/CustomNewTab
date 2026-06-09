@@ -11,14 +11,12 @@ function initOptionsPanel() {
       this.classList.add('active');
       var sec = this.getAttribute('data-section');
       document.getElementById('section-' + sec).classList.add('active');
-      if (sec === 'layout') setTimeout(renderLayoutPreview, 0);
     });
   });
   loadFavoritesPanel();
   initCalendarSection();
   initDriveSection();
   loadNewsSource();
-  loadSearchSettings();
   loadThemeSettings();
   loadWidgetSettings();
   initEventAddToggle();
@@ -26,8 +24,6 @@ function initOptionsPanel() {
   document.getElementById('add-fav-form').addEventListener('submit', handleAddFavorite);
   document.getElementById('pick-from-tabs-btn').addEventListener('click', toggleTabPicker);
   document.getElementById('save-news-source').addEventListener('click', saveNewsSource);
-  var addEngineBtn = document.getElementById('add-engine-btn');
-  if (addEngineBtn) addEngineBtn.addEventListener('click', handleAddEngine);
   document.getElementById('news-source').addEventListener('change', function() {
     document.getElementById('custom-rss-group').style.display = this.value==='custom'?'':'none';
   });
@@ -49,7 +45,6 @@ function initOptionsPanel() {
       });
       applyZoneWidths('1-1-1');
       renderWidgetTable();
-      renderLayoutPreview();
     });
   });
   document.addEventListener('keydown', function(e) {
@@ -712,113 +707,13 @@ function renderIcalUrlList(urls) {
     });
   });
 }
-function loadCalendars() {
-  chrome.storage.sync.get(['icalUrl', 'icalUrls'], function(data) {
-    if (data.icalUrls && data.icalUrls.length > 0) {
-      calendars = data.icalUrls;
-    } else if (data.icalUrl) {
-      // 後方互換: 単一URLからの移行
-      calendars = [{id:'default', name:'メイン', url:data.icalUrl, color:'#6c63ff', enabled:true}];
-      chrome.storage.sync.set({icalUrls: calendars});
-    } else {
-      calendars = [];
-    }
-    renderCalendarList();
-  });
-}
-function saveCalendars(cb) {
-  chrome.storage.sync.set({icalUrls: calendars}, function() {
-    renderCalendarList();
-    if (cb) cb();
-  });
-}
-function renderCalendarList() {
-  var container = document.getElementById('calendar-list');
-  if (calendars.length === 0) {
-    container.innerHTML = '<p class="empty-msg">カレンダーがまだ登録されていません</p>';
-    return;
-  }
-  var html = '';
-  calendars.forEach(function(cal) {
-    var domain = ''; try { domain = new URL(cal.url).hostname; } catch(e) {}
-    var toggleClass = 'toggle-switch' + (cal.enabled ? ' active' : '');
-    html += '<div class="cal-item" data-cal-id="' + escapeHtml(cal.id) + '">';
-    html += '<span class="cal-color-dot" style="background:' + escapeHtml(cal.color) + '"></span>';
-    html += '<span class="cal-item-name">' + escapeHtml(cal.name) + '</span>';
-    html += '<span class="cal-item-url" title="' + escapeHtml(cal.url) + '">' + escapeHtml(domain) + '</span>';
-    html += '<div class="cal-item-actions">';
-    html += '<div class="cal-color-presets cal-item-presets" data-cal-id="' + escapeHtml(cal.id) + '">';
-    CAL_COLOR_PRESETS.forEach(function(pc) { html += '<span class="cal-preset-dot' + (cal.color === pc ? ' active' : '') + '" data-color="' + pc + '" style="background:' + pc + '"></span>'; });
-    html += '</div>';
-    html += '<div class="' + toggleClass + '" data-cal-id="' + escapeHtml(cal.id) + '"></div>';
-    html += '<button class="btn btn-delete" data-del-cal="' + escapeHtml(cal.id) + '">×</button>';
-    html += '</div></div>';
-  });
-  container.innerHTML = html;
-  // トグル
-  container.querySelectorAll('.toggle-switch').forEach(function(toggle) {
-    toggle.addEventListener('click', function() {
-      var id = this.getAttribute('data-cal-id');
-      var cal = calendars.find(function(c) { return c.id === id; });
-      if (cal) { cal.enabled = !cal.enabled; saveCalendars(function(){ showStatus('カレンダーを更新しました'); }); }
-    });
-  });
-  // カラー変更（プリセット）
-  container.querySelectorAll('.cal-item-presets').forEach(function(presetGroup) {
-    presetGroup.addEventListener('click', function(e) {
-      var dot = e.target.closest('.cal-preset-dot');
-      if (!dot) return;
-      var id = this.getAttribute('data-cal-id');
-      var cal = calendars.find(function(c) { return c.id === id; });
-      if (cal) {
-        cal.color = dot.getAttribute('data-color');
-        saveCalendars(function(){ showStatus('カラーを変更しました'); });
-      }
-    });
-  });
-  // 削除
-  container.querySelectorAll('[data-del-cal]').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      var id = this.getAttribute('data-del-cal');
-      var cal = calendars.find(function(c) { return c.id === id; });
-      if (!cal) return;
-      showModal('カレンダー「' + cal.name + '」を削除しますか？', function() {
-        calendars = calendars.filter(function(c) { return c.id !== id; });
-        saveCalendars(function(){ showStatus('カレンダーを削除しました'); });
-      });
-    });
-  });
-}
-function handleAddCalendar() {
-  var name = document.getElementById('new-cal-name').value.trim();
-  var url = document.getElementById('new-cal-url').value.trim();
-  var activeDot = document.querySelector('#new-cal-color-presets .cal-preset-dot.active');
-  var color = activeDot ? activeDot.getAttribute('data-color') : '#6c63ff';
-  if (!name || !url) { showStatus('カレンダー名とiCal URLを入力してください'); return; }
-  requestHostAccess(url, function(ok) {
-    if (!ok) { showStatus('URLへのアクセス権限が必要です'); return; }
-    calendars.push({
-      id: 'cal-' + Date.now(),
-      name: name,
-      url: url,
-      color: color,
-      enabled: true
-    });
-    saveCalendars(function() {
-      showStatus('「' + name + '」を追加しました');
-      document.getElementById('new-cal-name').value = '';
-      document.getElementById('new-cal-url').value = '';
-      document.getElementById('new-cal-color-presets').querySelectorAll('.cal-preset-dot').forEach(function(d, i) { d.classList.toggle('active', i === 0); });
-    });
-  });
-}
 // ===== v1.3: レイアウト設定 =====
 var columnCount = 3;
 var DEFAULT_WIDGETS = [
   { id: 'calendar',  label: 'カレンダー',    visible: true,  column: 'left',   height: 1 },
   { id: 'favorites', label: 'お気に入り',    visible: true,  column: 'center', height: 1 },
   { id: 'news',      label: 'ニュース',      visible: true,  column: 'right',  height: 1 },
-  { id: 'drive',     label: 'Googleドライブ', visible: true,  column: 'right',  height: 1 }
+  { id: 'drive',     label: 'Googleドライブ', visible: false, column: 'right',  height: 1 }
 ];
 var widgetSettings = [];
 function loadWidgetSettings() {
@@ -889,7 +784,6 @@ function renderWidgetTable() {
   });
   setupLayoutDnD(zones);
   setupVerticalResizeHandles();
-  renderLayoutPreview();
   updateColCountUI(columnCount);
 }
 function applyZoneWidths(value) {
@@ -915,7 +809,6 @@ function updateColPcts() {
     var pct = document.getElementById('col-pct-' + i);
     if (pct) pct.textContent = Math.round(f / total * 100) + '%';
   });
-  renderLayoutPreview();
 }
 function setupResizeHandles() {
   var container = document.getElementById('layout-dnd-container');
@@ -1109,7 +1002,6 @@ function setupVerticalResizeHandles() {
         botWidget.height = parseFloat((newBotH * ratio / totalH * totalFlex).toFixed(3));
         topCard.style.flex = topWidget.height;
         botCard.style.flex = botWidget.height;
-        renderLayoutPreview();
       }
       function onMouseUp() {
         document.removeEventListener('mousemove', onMouseMove);
@@ -1126,71 +1018,6 @@ function setupVerticalResizeHandles() {
   });
 }
 
-function renderLayoutPreview() {
-  var preview = document.getElementById('layout-preview');
-  if (!preview) return;
-
-  var VIRT_W = 600;
-  var VIRT_H = 340;
-  var previewW = preview.clientWidth || 400;
-  var scale = previewW / VIRT_W;
-  preview.style.height = Math.round(VIRT_H * scale) + 'px';
-
-  var colZones = document.querySelectorAll('.layout-col-zone');
-  var flexes = Array.from(colZones).map(function(z) { return parseFloat(z.style.flex) || 1; });
-  var colKeys = ['left', 'center', 'right'];
-  var cols = { left: [], center: [], right: [] };
-  widgetSettings.forEach(function(w) {
-    if (w.visible && cols[w.column] !== undefined) cols[w.column].push(w);
-  });
-
-  function widgetBody(wid) {
-    var cells, rows, i;
-    if (wid === 'calendar') {
-      cells = '';
-      for (i = 0; i < 35; i++) cells += '<i></i>';
-      return '<div class="mp-cal-hdr"></div><div class="mp-cal">' + cells + '</div>';
-    }
-    if (wid === 'favorites') {
-      rows = '';
-      for (i = 0; i < 5; i++) rows += '<div class="mp-row"><i></i><b></b></div>';
-      return rows;
-    }
-    if (wid === 'news') {
-      rows = '';
-      for (i = 0; i < 3; i++) rows += '<div class="mp-news"><i></i><span><b></b><s></s></span></div>';
-      return rows;
-    }
-    if (wid === 'drive') {
-      rows = '';
-      for (i = 0; i < 5; i++) rows += '<div class="mp-row"><i></i><b></b></div>';
-      return rows;
-    }
-    return '';
-  }
-
-  var colsHtml = colKeys.slice(0, columnCount).map(function(key, i) {
-    var widgets = cols[key];
-    var inner = widgets.length
-      ? widgets.map(function(w) {
-          return '<div class="mp-card" style="flex:' + (w.height || 1) + '">' +
-            '<div class="mp-card-title"></div>' +
-            widgetBody(w.id) +
-          '</div>';
-        }).join('')
-      : '<div class="mp-empty"></div>';
-    return '<div class="mp-col" style="flex:' + flexes[i] + '">' + inner + '</div>';
-  }).join('');
-
-  preview.innerHTML =
-    '<div class="mp-screen" style="width:' + VIRT_W + 'px;height:' + VIRT_H + 'px;' +
-    'transform:scale(' + scale.toFixed(4) + ');transform-origin:top left">' +
-    '<div class="mp-topbar" data-count="' + getEnabledCount() + '">' +
-      Array(Math.max(1, getEnabledCount())).fill('<div class="mp-sb"></div>').join('') +
-    '</div>' +
-    '<div class="mp-body">' + colsHtml + '</div>' +
-    '</div>';
-}
 // ===== ニュース =====
 function loadNewsSource(){
   chrome.storage.sync.get(['newsSource','customRssUrl'],function(data){
@@ -1217,7 +1044,7 @@ function saveNewsSource(){
 var THEME_LIST=[
   {id:'dark-purple',name:'ダーク',colors:['#0f0c29','#302b63','#24243e']},
   {id:'midnight',name:'ミッドナイト',colors:['#020b1a','#0a1e3d','#071533']},
-  {id:'forest',name:'フォレスト',colors:['#060f08','#142a18','#0e2012']},
+  {id:'forest',name:'ピンク',colors:['#f5c0d4','#f0a4bc','#fad0e2']},
   {id:'sunset',name:'サンセット',colors:['#1a0e05','#33201a','#281208']},
   {id:'light',name:'ライト',colors:['#eef0f5','#e0e2ea','#f0f2f8']},
   {id:'slate',name:'スレート',colors:['#18181c','#252530','#1e1e28']}
@@ -1255,7 +1082,6 @@ function handleExport() {
     'theme',
     'newsSource', 'customRssUrl',
     'icalUrls',
-    'searchEngines',
     'driveAccounts',
     'widgetSettings', 'columnWidths',
     'eventFilterMode',
@@ -1316,125 +1142,6 @@ function handleImport(e) {
   };
   reader.readAsText(file);
   e.target.value = '';
-}
-
-// ===== 検索エンジン設定 =====
-var MAX_ENABLED = 4;
-var SEARCH_PRESETS = [
-  {id:'google',name:'Google',url:'https://www.google.com/search?q=%s',icon:'https://www.google.com/favicon.ico',enabled:true,preset:true},
-  {id:'perplexity',name:'Perplexity',url:'https://www.perplexity.ai/search?q=%s',icon:'https://www.google.com/s2/favicons?sz=64&domain=perplexity.ai',enabled:true,preset:true},
-  {id:'amazon',name:'Amazon',url:'https://www.amazon.co.jp/s?k=%s',icon:'https://www.google.com/s2/favicons?sz=64&domain=amazon.co.jp',enabled:false,preset:true},
-  {id:'youtube',name:'YouTube',url:'https://www.youtube.com/results?search_query=%s',icon:'https://www.google.com/s2/favicons?sz=64&domain=youtube.com',enabled:false,preset:true},
-  {id:'chatgpt',name:'ChatGPT',url:'https://chatgpt.com/?q=%s',icon:'https://www.google.com/s2/favicons?sz=64&domain=chatgpt.com',enabled:false,preset:true}
-];
-var searchEngines = [];
-function loadSearchSettings() {
-  chrome.storage.sync.get('searchEngines', function(data) {
-    searchEngines = data.searchEngines || SEARCH_PRESETS.map(function(p) { return Object.assign({}, p); });
-    renderSearchEngineList();
-    renderSearchPreview();
-  });
-}
-function saveSearchEngines(cb) {
-  chrome.storage.sync.set({searchEngines: searchEngines}, function() {
-    renderSearchPreview();
-    renderLayoutPreview();
-    if (cb) cb();
-  });
-}
-function getEnabledCount() { return searchEngines.filter(function(e) { return e.enabled; }).length; }
-function renderSearchEngineList() {
-  var container = document.getElementById('search-engine-list');
-  if (!container) return;
-  var cnt = getEnabledCount();
-  var countEl = document.getElementById('engine-enabled-count');
-  if (countEl) countEl.textContent = cnt + ' / ' + MAX_ENABLED + ' 有効';
-  var html = '';
-  searchEngines.forEach(function(engine) {
-    var tA = engine.enabled ? ' active' : '';
-    var tD = (!engine.enabled && cnt >= MAX_ENABLED) ? ' disabled' : '';
-    html += '<div class="engine-row" draggable="true" data-engine-id="' + escapeHtml(engine.id) + '">';
-    html += '<span class="engine-drag">⠿</span>';
-    html += '<img class="engine-icon" src="' + escapeHtml(engine.icon) + '" alt="" onerror="this.style.display=\'none\'">';
-    html += '<span class="engine-name">' + escapeHtml(engine.name) + '</span>';
-    html += '<div class="engine-actions"><div class="toggle-switch' + tA + tD + '" data-engine-id="' + escapeHtml(engine.id) + '"></div>';
-    if (!engine.preset) html += '<button class="btn btn-delete" data-del-engine="' + escapeHtml(engine.id) + '">×</button>';
-    html += '</div></div>';
-  });
-  container.innerHTML = html;
-  container.querySelectorAll('.toggle-switch').forEach(function(toggle) {
-    toggle.addEventListener('click', function() {
-      if (this.classList.contains('disabled')) return;
-      var id = this.getAttribute('data-engine-id');
-      var engine = searchEngines.find(function(e) { return e.id === id; });
-      if (!engine) return;
-      engine.enabled = !engine.enabled;
-      saveSearchEngines(function() { renderSearchEngineList(); });
-    });
-  });
-  container.querySelectorAll('[data-del-engine]').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      var id = this.getAttribute('data-del-engine');
-      searchEngines = searchEngines.filter(function(e) { return e.id !== id; });
-      saveSearchEngines(function() { renderSearchEngineList(); showStatus('検索エンジンを削除しました'); });
-    });
-  });
-  setupEngineDnD(container);
-}
-function setupEngineDnD(container) {
-  var draggedRow = null;
-  container.querySelectorAll('.engine-row').forEach(function(row) {
-    row.addEventListener('dragstart', function(e) { draggedRow = this; this.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; });
-    row.addEventListener('dragover', function(e) {
-      e.preventDefault(); if (this === draggedRow) return;
-      container.querySelectorAll('.engine-row').forEach(function(r) { r.classList.remove('drag-over-above', 'drag-over-below'); });
-      var rect = this.getBoundingClientRect();
-      this.classList.add(e.clientY < rect.top + rect.height / 2 ? 'drag-over-above' : 'drag-over-below');
-    });
-    row.addEventListener('dragleave', function() { this.classList.remove('drag-over-above', 'drag-over-below'); });
-    row.addEventListener('drop', function(e) {
-      e.preventDefault();
-      container.querySelectorAll('.engine-row').forEach(function(r) { r.classList.remove('drag-over-above', 'drag-over-below'); });
-      if (!draggedRow || this === draggedRow) return;
-      var fromId = draggedRow.getAttribute('data-engine-id'), toId = this.getAttribute('data-engine-id');
-      var above = e.clientY < this.getBoundingClientRect().top + this.getBoundingClientRect().height / 2;
-      var fromIdx = searchEngines.findIndex(function(e) { return e.id === fromId; });
-      var item = searchEngines.splice(fromIdx, 1)[0];
-      var toIdx = searchEngines.findIndex(function(e) { return e.id === toId; }); if (!above) toIdx++;
-      searchEngines.splice(toIdx, 0, item);
-      saveSearchEngines(function() { renderSearchEngineList(); });
-    });
-    row.addEventListener('dragend', function() {
-      this.classList.remove('dragging');
-      container.querySelectorAll('.engine-row').forEach(function(r) { r.classList.remove('drag-over-above', 'drag-over-below'); });
-    });
-  });
-}
-function renderSearchPreview() {
-  var area = document.getElementById('search-preview-area');
-  if (!area) return;
-  var enabled = searchEngines.filter(function(e) { return e.enabled; });
-  if (enabled.length === 0) { area.innerHTML = '<p class="empty-msg">検索バーは非表示です</p>'; area.removeAttribute('data-count'); return; }
-  area.setAttribute('data-count', enabled.length);
-  var html = '';
-  enabled.forEach(function(engine) {
-    html += '<div class="preview-search-box"><img src="' + escapeHtml(engine.icon) + '" alt="" class="preview-icon" onerror="this.style.display=\'none\'"><span class="preview-placeholder">' + escapeHtml(engine.name) + ' で検索...</span></div>';
-  });
-  area.innerHTML = html;
-}
-function handleAddEngine() {
-  var name = document.getElementById('engine-name').value.trim();
-  var url = document.getElementById('engine-url').value.trim();
-  if (!name || !url) { showStatus('名前とURLを入力してください'); return; }
-  if (url.indexOf('%s') === -1) { showStatus('URLに %s を含めてください'); return; }
-  var domain = ''; try { domain = new URL(url.replace('%s', 'test')).hostname; } catch(e) {}
-  searchEngines.push({id: 'custom-' + Date.now(), name: name, url: url, icon: domain ? 'https://www.google.com/s2/favicons?sz=64&domain=' + domain : '', enabled: false, preset: false});
-  saveSearchEngines(function() {
-    renderSearchEngineList();
-    showStatus('「' + name + '」を追加しました');
-    document.getElementById('engine-name').value = '';
-    document.getElementById('engine-url').value = '';
-  });
 }
 
 // ===== v1.3: 予定追加機能ON/OFF =====
