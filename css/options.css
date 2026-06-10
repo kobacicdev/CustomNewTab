@@ -263,7 +263,7 @@ body { font-family:'Segoe UI','Noto Sans JP',sans-serif; background: var(--bg-gr
 .account-status { font-size:11px; }
 .account-status.ok { color:var(--accent); }
 .account-status.expired { color:var(--danger); }
-/* ===== v1.3: 複数カレンダー管理UI ===== */
+/* ===== 複数カレンダー管理UI ===== */
 .cal-list-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
 .cal-list-header h3 { font-size:14px; color: var(--text-heading); }
 .calendar-list { display:flex; flex-direction:column; gap:2px; margin-bottom:16px; }
@@ -276,7 +276,7 @@ body { font-family:'Segoe UI','Noto Sans JP',sans-serif; background: var(--bg-gr
 .cal-color-input { width:32px; height:32px; border:none; border-radius:6px; cursor:pointer; background:transparent; padding:0; }
 .cal-color-input::-webkit-color-swatch-wrapper { padding:2px; }
 .cal-color-input::-webkit-color-swatch { border:1px solid var(--input-border); border-radius:4px; }
-/* ===== v1.3: カレンダーカラープリセット ===== */
+/* ===== カレンダーカラープリセット ===== */
 .cal-color-presets { display:flex; gap:6px; align-items:center; padding:4px 0; }
 .cal-preset-dot { width:20px; height:20px; border-radius:50%; cursor:pointer; border:2px solid transparent; transition:all 0.2s; flex-shrink:0; }
 .cal-preset-dot:hover { transform:scale(1.15); }

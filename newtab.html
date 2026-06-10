@@ -39,7 +39,7 @@
       </div>
     </div>
   </div>
-  <!-- v1.3: 予定追加モーダル -->
+  <!-- 予定追加モーダル -->
   <div class="event-modal-overlay" id="event-modal-overlay">
     <div class="event-modal">
       <h3 class="event-modal-title">予定を追加</h3>
@@ -66,6 +66,14 @@
           <label class="event-allday-label">
             <input type="checkbox" id="event-allday-input"> 終日
           </label>
+        </div>
+        <div class="event-modal-field">
+          <label for="event-location-input">場所</label>
+          <input type="text" id="event-location-input" placeholder="場所（任意）">
+        </div>
+        <div class="event-modal-field">
+          <label for="event-desc-input">説明</label>
+          <textarea id="event-desc-input" placeholder="説明（任意）" rows="3"></textarea>
         </div>
       </div>
       <div class="event-modal-actions">

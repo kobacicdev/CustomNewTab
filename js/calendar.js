@@ -1,5 +1,5 @@
 // ===== カスタム月カレンダー + 予定リスト =====
-// v1.3: Google Calendar API（OAuth）+ iCal URL ハイブリッド対応
+// Google Calendar API（OAuth）+ iCal URL ハイブリッド対応
 
 const CLIENT_ID = '426478709632-vmchoj67r7bepje4tatk893f0kuhio7u.apps.googleusercontent.com';
 const SCOPES = 'https://www.googleapis.com/auth/calendar.readonly';
@@ -354,7 +354,7 @@ function renderCalendar() {
     renderCalendar();
     if (filterMode === 'month') renderFilteredEvents();
   });
-  // v1.3: 日付セルクリックで予定追加モーダル
+  // 日付セルクリックで予定追加モーダル
   container.querySelectorAll('.cal-clickable').forEach(function(cell) {
     cell.addEventListener('click', function() {
       var y = parseInt(this.getAttribute('data-year'));
@@ -365,7 +365,7 @@ function renderCalendar() {
   });
 }
 
-// ===== v1.3: 予定追加モーダル =====
+// ===== 予定追加モーダル =====
 function openEventModal(year, month, day) {
   var overlay = document.getElementById('event-modal-overlay');
   var dateStr = year + '-' + String(month + 1).padStart(2, '0') + '-' + String(day).padStart(2, '0');
@@ -374,6 +374,8 @@ function openEventModal(year, month, day) {
   document.getElementById('event-start-input').value = '09:00';
   document.getElementById('event-end-input').value = '10:00';
   document.getElementById('event-allday-input').checked = false;
+  document.getElementById('event-location-input').value = '';
+  document.getElementById('event-desc-input').value = '';
   toggleTimeInputs(false);
   overlay.classList.add('show');
   document.getElementById('event-title-input').focus();
@@ -403,9 +405,13 @@ function initEventModal() {
     var isAllDay = document.getElementById('event-allday-input').checked;
     var startTime = document.getElementById('event-start-input').value;
     var endTime = document.getElementById('event-end-input').value;
+    var location = document.getElementById('event-location-input').value.trim();
+    var description = document.getElementById('event-desc-input').value.trim();
     // Googleカレンダー作成画面を開く
     var gcalUrl = 'https://calendar.google.com/calendar/render?action=TEMPLATE';
     gcalUrl += '&text=' + encodeURIComponent(title);
+    if (location) gcalUrl += '&location=' + encodeURIComponent(location);
+    if (description) gcalUrl += '&details=' + encodeURIComponent(description);
     if (isAllDay) {
       var d = date.replace(/-/g, '');
       var nextDay = new Date(date);
@@ -553,7 +559,7 @@ function updateCalendarDots(targetDate) {
   });
 }
 
-// ===== 予定リスト描画（v1.3: カラードット + ソースバッジ） =====
+// ===== 予定リスト描画（カラードット + ソースバッジ） =====
 function renderICalEventsList(items) {
   var container = document.getElementById('events-container');
   if (!items || items.length === 0) {

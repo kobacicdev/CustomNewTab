@@ -33,7 +33,7 @@ function refreshAfterSettings() {
   applyLayoutSettings();
 }
 
-// v1.3: レイアウト設定適用
+// レイアウト設定適用
 function applyLayoutSettings() {
   chrome.storage.sync.get(['widgetSettings', 'columnWidths', 'columnCount', 'driveAccounts'], function(data) {
     var mainContent = document.getElementById('main-content');

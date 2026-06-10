@@ -1,5 +1,5 @@
 // js/news.js — Google News RSS → ニュース表示
-// v1.2: ソース切り替え + RSS XML直接パース（DOMParser）+ カード内スクロール
+// ソース切り替え + RSS XML直接パース（DOMParser）+ カード内スクロール
 
 var NEWS_TOPICS = {
   'google-general':       'https://news.google.com/rss?hl=ja&gl=JP&ceid=JP:ja',

@@ -452,7 +452,7 @@ function renderDriveAccountList(accounts) {
   });
 }
 
-// ===== v1.3: Google Calendar OAuth + iCal URL ハイブリッド管理 =====
+// ===== Google Calendar OAuth + iCal URL ハイブリッド管理 =====
 const OPTIONS_CLIENT_ID = '426478709632-vmchoj67r7bepje4tatk893f0kuhio7u.apps.googleusercontent.com';
 const OPTIONS_SCOPES    = 'https://www.googleapis.com/auth/calendar.readonly';
 const OPTIONS_REDIRECT  = 'https://' + chrome.runtime.id + '.chromiumapp.org/';
@@ -707,7 +707,7 @@ function renderIcalUrlList(urls) {
     });
   });
 }
-// ===== v1.3: レイアウト設定 =====
+// ===== レイアウト設定 =====
 var columnCount = 3;
 var DEFAULT_WIDGETS = [
   { id: 'calendar',  label: 'カレンダー',    visible: true,  column: 'left',   height: 1 },
@@ -1070,7 +1070,7 @@ function renderThemeGrid(current){
     });
   });
 }
-// ===== v1.3: 設定エクスポート・インポート =====
+// ===== 設定エクスポート・インポート =====
 function initExportImport() {
   document.getElementById('export-btn').addEventListener('click', handleExport);
   document.getElementById('import-file-input').addEventListener('change', handleImport);
@@ -1099,7 +1099,7 @@ function handleExport() {
       });
     }
     var exportData = {
-      version: '1.3',
+      version: '1.0',
       exportedAt: new Date().toISOString(),
       data: data
     };
@@ -1144,7 +1144,7 @@ function handleImport(e) {
   e.target.value = '';
 }
 
-// ===== v1.3: 予定追加機能ON/OFF =====
+// ===== 予定追加機能ON/OFF =====
 function initEventAddToggle() {
   var toggle = document.getElementById('toggle-event-add');
   if (!toggle) return;
