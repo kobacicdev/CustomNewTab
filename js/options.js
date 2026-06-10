@@ -711,7 +711,7 @@ function renderIcalUrlList(urls) {
 var columnCount = 3;
 var DEFAULT_WIDGETS = [
   { id: 'calendar',  label: 'カレンダー',    visible: true,  column: 'left',   height: 1 },
-  { id: 'favorites', label: 'お気に入り',    visible: true,  column: 'center', height: 1 },
+  { id: 'favorites', label: 'お気に入りサイト', visible: true,  column: 'center', height: 1 },
   { id: 'news',      label: 'ニュース',      visible: true,  column: 'right',  height: 1 },
   { id: 'drive',     label: 'Googleドライブ', visible: false, column: 'right',  height: 1 }
 ];
