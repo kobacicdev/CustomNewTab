@@ -20,6 +20,7 @@ function initOptionsPanel() {
   loadThemeSettings();
   loadWidgetSettings();
   initEventAddToggle();
+  initJumpToTodayToggle();
   initExportImport();
   document.getElementById('add-fav-form').addEventListener('submit', handleAddFavorite);
   document.getElementById('pick-from-tabs-btn').addEventListener('click', toggleTabPicker);
@@ -1085,7 +1086,8 @@ function handleExport() {
     'driveAccounts',
     'widgetSettings', 'columnWidths',
     'eventFilterMode',
-    'enableEventAdd'
+    'enableEventAdd',
+    'calJumpToToday'
   ];
   chrome.storage.sync.get(exportKeys, function(data) {
     if (data.gcalAccounts) {
@@ -1155,6 +1157,20 @@ function initEventAddToggle() {
     var isActive = this.classList.toggle('active');
     chrome.storage.sync.set({ enableEventAdd: isActive }, function() {
       showStatus(isActive ? '予定追加機能を有効にしました' : '予定追加機能を無効にしました');
+    });
+  });
+}
+
+function initJumpToTodayToggle() {
+  var toggle = document.getElementById('toggle-jump-to-today');
+  if (!toggle) return;
+  chrome.storage.sync.get('calJumpToToday', function(data) {
+    if (data.calJumpToToday !== false) toggle.classList.add('active');
+  });
+  toggle.addEventListener('click', function() {
+    var isActive = this.classList.toggle('active');
+    chrome.storage.sync.set({ calJumpToToday: isActive }, function() {
+      showStatus(isActive ? '今日へスクロールを有効にしました' : '今日へスクロールを無効にしました');
     });
   });
 }

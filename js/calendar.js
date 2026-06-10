@@ -11,10 +11,12 @@ var eventDayColors = new Map(); // day -> color[]
 var allEvents = [];
 var filterMode = 'month';
 var enableEventAdd = false;
+var jumpToToday = true;
 
 function loadCalendarEmbed() {
-  chrome.storage.sync.get('enableEventAdd', function(data) {
+  chrome.storage.sync.get(['enableEventAdd', 'calJumpToToday'], function(data) {
     enableEventAdd = data.enableEventAdd === true;
+    jumpToToday = data.calJumpToToday !== false;
     loadFilterMode(function() {
       renderFilterTabs();
       renderCalendar();
@@ -438,6 +440,13 @@ function renderFilteredEvents() {
   else if (filterMode === 'day') { filtered = filterDayEvents(allEvents); }
   else { filtered = filterMonthEvents(allEvents, currentDate); }
   renderICalEventsList(filtered);
+  if (jumpToToday && filterMode !== 'day') scrollEventsToToday();
+}
+
+function scrollEventsToToday() {
+  var container = document.getElementById('events-container');
+  var todayEl = container && container.querySelector('[data-today]');
+  if (todayEl) container.scrollTop = todayEl.offsetTop - container.offsetTop;
 }
 function filterWeekEvents(events) {
   var now = new Date();
@@ -566,10 +575,12 @@ function renderICalEventsList(items) {
     container.innerHTML = '<p style="color:var(--text-muted);">予定はありません</p>';
     return;
   }
-  var groups = {}, dayNames = ['日','月','火','水','木','金','土'];
+  var groups = {}, groupDates = {}, dayNames = ['日','月','火','水','木','金','土'];
+  var todayStr = new Date().toDateString();
   items.forEach(function(ev) {
     var d = ev.start;
     var groupKey = (d.getMonth()+1) + '/' + d.getDate() + '（' + dayNames[d.getDay()] + '）';
+    groupDates[groupKey] = d.toDateString();
     if (!groups[groupKey]) groups[groupKey] = [];
     var timeStr = ev.isAllDay ? '終日'
       : ev.start.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}) + (ev.end ? ' \u2013 ' + ev.end.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}) : '');
@@ -577,7 +588,8 @@ function renderICalEventsList(items) {
   });
   var html = '';
   Object.keys(groups).forEach(function(groupLabel) {
-    html += '<div class="event-group"><div class="event-date-header">' + groupLabel + '</div>';
+    var isToday = groupDates[groupLabel] === todayStr;
+    html += '<div class="event-group"' + (isToday ? ' data-today="true"' : '') + '><div class="event-date-header">' + groupLabel + '</div>';
     groups[groupLabel].forEach(function(item) {
       var dot = item.calendarColor ? '<span class="event-cal-dot" style="background:' + escapeAttr(item.calendarColor) + '"></span>' : '';
       var sourceBadge = '';
