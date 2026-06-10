@@ -35,7 +35,7 @@ function refreshAfterSettings() {
 
 // レイアウト設定適用
 function applyLayoutSettings() {
-  chrome.storage.sync.get(['widgetSettings', 'columnWidths', 'columnCount', 'driveAccounts', 'calEventsHeight'], function(data) {
+  chrome.storage.sync.get(['widgetSettings', 'columnWidths', 'columnCount', 'driveAccounts'], function(data) {
     var mainContent = document.getElementById('main-content');
     if (!mainContent) return;
     var colCount = parseInt(data.columnCount) || 3;
@@ -46,7 +46,6 @@ function applyLayoutSettings() {
       { id: 'drive',     visible: false, column: 'right', height: 1 }
     ];
     var settings = data.widgetSettings || defaults;
-    var calEventsHeight = data.calEventsHeight || 'auto';
 
     // driveアカウントが初めて追加された時のみ自動で visible:true に
     if ((data.driveAccounts || []).length > 0) {
@@ -77,11 +76,7 @@ function applyLayoutSettings() {
           el.style.display = '';
           targetCol.appendChild(el);
           if (widget.id === 'calendar' && el.classList.contains('calendar-embed')) {
-            // カレンダーグリッドは内容に合わせた高さ（伸ばさない）
             el.style.flex = '0 0 auto';
-          } else if (widget.id === 'calendar') {
-            // 予定リストの高さ設定を適用
-            el.style.flex = calEventsHeight === 'auto' ? '1' : '0 0 ' + calEventsHeight + 'px';
           } else {
             el.style.flex = widget.height || 1;
           }
