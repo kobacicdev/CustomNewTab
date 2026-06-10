@@ -13,8 +13,14 @@ var filterMode = 'month';
 var enableEventAdd = false;
 
 function loadCalendarEmbed() {
-  chrome.storage.sync.get('enableEventAdd', function(data) {
+  chrome.storage.sync.get(['enableEventAdd', 'calendarCellSize'], function(data) {
     enableEventAdd = data.enableEventAdd === true;
+    var calCard = document.querySelector('.calendar-embed');
+    if (calCard) {
+      calCard.classList.remove('cal-size-compact', 'cal-size-large');
+      if (data.calendarCellSize === 'compact') calCard.classList.add('cal-size-compact');
+      else if (data.calendarCellSize === 'large') calCard.classList.add('cal-size-large');
+    }
     loadFilterMode(function() {
       renderFilterTabs();
       renderCalendar();

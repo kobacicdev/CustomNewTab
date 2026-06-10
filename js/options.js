@@ -15,6 +15,7 @@ function initOptionsPanel() {
   });
   loadFavoritesPanel();
   initCalendarSection();
+  initCalSizeSettings();
   initDriveSection();
   loadNewsSource();
   loadThemeSettings();
@@ -1144,6 +1145,37 @@ function handleImport(e) {
   e.target.value = '';
 }
 
+// ===== カレンダー表示サイズ設定 =====
+function initCalSizeSettings() {
+  var cellBtns = document.querySelectorAll('#cal-cell-size-btns .layout-col-count-btn');
+  var evtBtns  = document.querySelectorAll('#cal-events-height-btns .layout-col-count-btn');
+  if (!cellBtns.length && !evtBtns.length) return;
+
+  chrome.storage.sync.get(['calendarCellSize', 'calEventsHeight'], function(data) {
+    var cellSize  = data.calendarCellSize || 'standard';
+    var evtHeight = data.calEventsHeight  || 'auto';
+
+    cellBtns.forEach(function(btn) {
+      btn.classList.toggle('active', btn.getAttribute('data-size') === cellSize);
+      btn.addEventListener('click', function() {
+        var size = this.getAttribute('data-size');
+        chrome.storage.sync.set({ calendarCellSize: size }, function() { showStatus('保存しました'); });
+        cellBtns.forEach(function(b) { b.classList.remove('active'); });
+        this.classList.add('active');
+      });
+    });
+
+    evtBtns.forEach(function(btn) {
+      btn.classList.toggle('active', btn.getAttribute('data-height') === evtHeight);
+      btn.addEventListener('click', function() {
+        var height = this.getAttribute('data-height');
+        chrome.storage.sync.set({ calEventsHeight: height }, function() { showStatus('保存しました'); });
+        evtBtns.forEach(function(b) { b.classList.remove('active'); });
+        this.classList.add('active');
+      });
+    });
+  });
+}
 // ===== 予定追加機能ON/OFF =====
 function initEventAddToggle() {
   var toggle = document.getElementById('toggle-event-add');
