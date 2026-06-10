@@ -48,18 +48,12 @@ function applyLayoutSettings() {
     var settings = data.widgetSettings || defaults;
     var calEventsHeight = data.calEventsHeight || 'auto';
 
-    // driveアカウントがあれば自動で visible:true に（既存設定・初回ともに対応）
+    // driveアカウントが初めて追加された時のみ自動で visible:true に
     if ((data.driveAccounts || []).length > 0) {
       var colNames0 = ['left', 'center', 'right'];
       var driveWidget = settings.find(function(w) { return w.id === 'drive'; });
       if (!driveWidget) {
-        driveWidget = { id: 'drive', visible: true, column: colNames0[colCount - 1], height: 1 };
-        settings.push(driveWidget);
-        chrome.storage.sync.set({ widgetSettings: settings });
-      } else if (!driveWidget.visible) {
-        driveWidget.visible = true;
-        var colIdx0 = colNames0.indexOf(driveWidget.column);
-        if (colIdx0 < 0 || colIdx0 >= colCount) driveWidget.column = colNames0[colCount - 1];
+        settings.push({ id: 'drive', visible: true, column: colNames0[colCount - 1], height: 1 });
         chrome.storage.sync.set({ widgetSettings: settings });
       }
     }
