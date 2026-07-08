@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="google-site-verification" content="gnsqKJyiIARSbxkVvalSUK85ZuNrN927KFrc7BYDMiA" />
+  <title>プライバシーポリシー — Custom New Tab</title>
+  <style>
+    :root { --accent: #3d8bff; --text: #1f2733; --muted: #5b6573; --bg: #f6f8fb; --card: #ffffff; --border: #e3e8ef; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif; color: var(--text); background: var(--bg); line-height: 1.8; }
+    .wrap { max-width: 760px; margin: 0 auto; padding: 48px 20px 80px; }
+    header { margin-bottom: 32px; }
+    h1 { font-size: 26px; margin: 0 0 8px; }
+    .updated { color: var(--muted); font-size: 14px; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 28px 28px 8px; }
+    h2 { font-size: 18px; margin: 28px 0 8px; padding-top: 8px; }
+    h2:first-of-type { margin-top: 8px; }
+    p, li { font-size: 15px; color: var(--text); }
+    ul { padding-left: 1.2em; }
+    li { margin: 6px 0; }
+    code { background: #eef2f7; border-radius: 4px; padding: 1px 6px; font-size: 13px; font-family: "SF Mono", Menlo, Consolas, monospace; }
+    .note { background: #f0f5ff; border-left: 3px solid var(--accent); border-radius: 6px; padding: 12px 16px; font-size: 14px; color: var(--muted); margin: 12px 0; }
+    a { color: var(--accent); }
+    footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 32px; }
+    .nav { margin-bottom: 24px; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="nav"><a href="./index.html">← Custom New Tab トップ</a></div>
+    <header>
+      <h1>🔒 Custom New Tab プライバシーポリシー</h1>
+      <div class="updated">最終更新日：2026年6月10日</div>
+    </header>
+
+    <div class="card">
+      <p>本プライバシーポリシーは、Chrome拡張機能「Custom New Tab」におけるユーザーデータの取り扱いについて説明するものです。</p>
+
+      <h2>1. データの収集について</h2>
+      <p>Custom New Tab は、開発者が運営するサーバーへの個人データの収集・送信・共有を<strong>一切行いません</strong>。本拡張機能が扱うデータはすべてユーザーのブラウザ内に保存され、保存先は用途に応じて次の2種類に分かれます。</p>
+      <ul>
+        <li><strong>認証トークン・連携アカウント情報</strong> — <code>chrome.storage.local</code>（お使いの端末内のみに保存され、他のデバイスには同期されません）</li>
+        <li><strong>お気に入り・表示設定など</strong> — <code>chrome.storage.sync</code>（ユーザーのGoogleアカウントに紐づき、複数のChromeブラウザ間で同期される場合があります）</li>
+      </ul>
+
+      <h2>2. ローカルに保存されるデータ</h2>
+      <p>以下のデータがブラウザ内に保存されます：</p>
+      <ul>
+        <li><strong>お気に入りサイト</strong> — 登録したサイト名・URL・セクション分類</li>
+        <li><strong>カレンダー設定</strong> — Googleアカウント（OAuth）のメールアドレス・アクセストークン・有効期限、およびiCal URL（名前・URL・カラー）</li>
+        <li><strong>Googleドライブ設定</strong> — Googleアカウントのメールアドレス・アクセストークン・有効期限、取得件数・デフォルト表示</li>
+        <li><strong>ニュース設定</strong> — 選択したニュースソース、カスタムRSS URL（設定時のみ）</li>
+        <li><strong>テーマ設定</strong> — 選択したカラーテーマ</li>
+        <li><strong>表示・レイアウト設定</strong> — ウィジェット配置・列数・カラム幅・予定フィルタモード等のUI設定</li>
+      </ul>
+      <p>上記のうち、<strong>Googleアカウントのアクセストークン・連携アカウント情報（メールアドレス・有効期限）は <code>chrome.storage.local</code> に保存され、お使いの端末内にのみ保持されます（他のデバイスには同期されません）</strong>。お気に入り・テーマ・レイアウト等のその他の設定は <code>chrome.storage.sync</code> に保存され、ユーザーのGoogleアカウントに紐づく複数のChromeブラウザ間で同期される場合があります。<strong>いずれのデータも、開発者が運営するサードパーティサーバーに送信されることはありません。</strong></p>
+      <div class="note">🔒 OAuthアクセストークンは設定のエクスポート対象から除外されています。インポート後はGoogleアカウントへの再ログインが必要です。</div>
+
+      <h2>3. ネットワーク通信</h2>
+      <p>本拡張機能は以下のネットワーク通信を行います：</p>
+      <ul>
+        <li><strong>Google OAuth 2.0</strong>（<code>accounts.google.com</code>） — GoogleアカウントによるCalendar / Drive連携の認証のため</li>
+        <li><strong>Google Calendar API</strong>（<code>www.googleapis.com</code>） — Googleカレンダーの予定を取得・表示するため（連携時のみ）</li>
+        <li><strong>Google Drive API</strong>（<code>www.googleapis.com</code>） — Googleドライブのファイル一覧を取得・表示するため（連携時のみ）</li>
+        <li><strong>Google News RSS</strong>（<code>news.google.com</code>） — ニュース記事の取得・表示のため</li>
+        <li><strong>iCal URL</strong>（ユーザー指定） — カレンダープロバイダーから予定を取得するため（設定時のみ）</li>
+        <li><strong>カスタムRSS URL</strong>（ユーザー指定） — カスタムRSSフィードからニュースを取得するため（設定時のみ）</li>
+        <li><strong>Google Favicons API</strong>（<code>google.com/s2/favicons</code>） — お気に入りサイトおよびニュース配信元のアイコンを表示するため</li>
+      </ul>
+      <p>すべてのネットワーク通信はユーザーのブラウザから直接行われます。中間サーバーを経由することはありません。</p>
+
+      <h2>4. 権限について</h2>
+      <ul>
+        <li><strong><code>storage</code></strong> — 設定をローカルに保存・同期するために使用</li>
+        <li><strong><code>identity</code></strong> — Google OAuth認証（Calendar / Drive連携）を実行するために使用</li>
+        <li><strong><code>host_permissions</code></strong>（<code>news.google.com</code>、<code>www.googleapis.com</code>） — Google News RSS取得およびGoogle API呼び出しに必要</li>
+        <li><strong><code>optional_permissions</code></strong>（<code>tabs</code>） — 開いているタブからお気に入りを追加する機能を使用した場合のみ、実行時にリクエストします。使用しない場合は不要で、いつでも拒否・取り消しが可能です</li>
+        <li><strong><code>optional_host_permissions</code></strong> — iCal URLやカスタムRSS URLを登録した場合のみ、実行時にリクエストします</li>
+      </ul>
+      <p>本拡張機能がリクエストするOAuthスコープと利用目的は以下のとおりです：</p>
+      <ul>
+        <li><code>https://www.googleapis.com/auth/calendar.readonly</code> — Googleカレンダーの予定を読み取り、新しいタブに表示するため（読み取り専用）</li>
+        <li><code>https://www.googleapis.com/auth/drive.metadata.readonly</code> — Google Driveのファイル名・更新日時などのメタデータを一覧表示するため（ファイル本文は読み取りません）</li>
+        <li><code>https://www.googleapis.com/auth/userinfo.email</code> — 連携したGoogleアカウントを識別・表示するため</li>
+      </ul>
+
+      <h2>5. サードパーティサービス</h2>
+      <p>本拡張機能は、アクセス解析・トラッキング・広告・その他のサードパーティによるデータ収集サービスを<strong>一切使用していません</strong>。</p>
+
+      <h2>6. データの共有</h2>
+      <p>ユーザーのデータを第三者に販売・譲渡・提供することは<strong>ありません</strong>。第3項に記載したネットワーク通信を除き、ブラウザ外にデータが送信されることはありません。</p>
+
+      <h2>7. Google APIから取得した情報の取り扱い（Limited Use）</h2>
+      <p>本拡張機能が Google API から受け取った情報の利用および第三者への提供は、Limited Use 要件を含む <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener">Google API Services User Data Policy</a> に準拠します。</p>
+
+      <h2>8. ポリシーの変更</h2>
+      <p>本プライバシーポリシーは随時更新される場合があります。変更があった場合は、ページ上部の「最終更新日」に反映されます。</p>
+
+      <h2>9. お問い合わせ</h2>
+      <p>本プライバシーポリシーに関するご質問は、以下までご連絡ください：<br>
+      📧 <a href="mailto:kobacic7@gmail.com">kobacic7@gmail.com</a></p>
+    </div>
+
+    <footer>© 2026 Custom New Tab</footer>
+  </div>
+</body>
+</html>

@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="google-site-verification" content="gnsqKJyiIARSbxkVvalSUK85ZuNrN927KFrc7BYDMiA" />
+  <title>Custom New Tab — 新しいタブを、あなただけのダッシュボードに。</title>
+  <meta name="description" content="Custom New Tab は、ブラウザの新しいタブをカレンダー・お気に入り・ニュース・Driveのダッシュボードに変える Chrome 拡張機能です。">
+  <style>
+    :root { --accent: #3d8bff; --text: #1f2733; --muted: #5b6573; --bg: #f6f8fb; --card: #ffffff; --border: #e3e8ef; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif; color: var(--text); background: var(--bg); line-height: 1.7; }
+    .wrap { max-width: 760px; margin: 0 auto; padding: 64px 20px 80px; }
+    .hero { text-align: center; margin-bottom: 48px; }
+    .logo { width: 88px; height: 88px; border-radius: 20px; box-shadow: 0 6px 20px rgba(31,39,51,.12); }
+    h1 { font-size: 30px; margin: 20px 0 8px; }
+    .tagline { color: var(--muted); font-size: 17px; margin: 0; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 28px; margin-bottom: 20px; }
+    h2 { font-size: 19px; margin: 0 0 14px; }
+    .features { list-style: none; padding: 0; margin: 0; }
+    .features li { padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 15px; }
+    .features li:last-child { border-bottom: none; }
+    .features b { display: block; }
+    .features span { color: var(--muted); font-size: 14px; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .links { display: flex; gap: 16px; flex-wrap: wrap; }
+    footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 40px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hero">
+      <img class="logo" src="./icon128.png" alt="Custom New Tab ロゴ">
+      <h1>Custom New Tab</h1>
+      <p class="tagline">新しいタブを、あなただけのダッシュボードに。</p>
+    </div>
+
+    <div class="card">
+      <h2>概要</h2>
+      <p>Custom New Tab は、Chrome の新しいタブページを、カレンダー・お気に入りサイト・ニュース・Googleドライブをまとめたダッシュボードに置き換える拡張機能です。すべてのデータはお使いのブラウザ内で完結し、開発者のサーバーには一切送信されません。</p>
+    </div>
+
+    <div class="card">
+      <h2>主な機能</h2>
+      <ul class="features">
+        <li><b>📅 カレンダー</b><span>Googleカレンダー（読み取り専用）と iCal URL の予定を月・週・日で表示</span></li>
+        <li><b>⭐ お気に入りサイト</b><span>よく使うサイトをセクション分けして素早くアクセス</span></li>
+        <li><b>📰 ニュース</b><span>Google News や任意のRSSから最新記事を表示</span></li>
+        <li><b>📁 Google ドライブ</b><span>最近使用したファイル・スター付きファイルの一覧表示（メタデータのみ・読み取り専用）</span></li>
+        <li><b>🎨 テーマ・レイアウト</b><span>カラーテーマ・ウィジェット配置・列数を自由にカスタマイズ</span></li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2>プライバシー</h2>
+      <p>本拡張機能はユーザーデータを収集・販売しません。Google API から取得した情報は新しいタブ上での表示のみに使用し、Limited Use 要件を含む Google API Services User Data Policy に準拠します。</p>
+      <div class="links">
+        <a href="./privacy.html">プライバシーポリシー →</a>
+        <a href="mailto:kobacic7@gmail.com">お問い合わせ →</a>
+      </div>
+    </div>
+
+    <footer>© 2026 Custom New Tab</footer>
+  </div>
+</body>
+</html>
