@@ -33,13 +33,13 @@ async function getValidDriveToken(account) {
   try {
     const result = await launchDriveOAuth(account.email, false);
     const accounts = await new Promise(function(res) {
-      chrome.storage.sync.get('driveAccounts', function(d) { res(d.driveAccounts || []); });
+      chrome.storage.local.get('driveAccounts', function(d) { res(d.driveAccounts || []); });
     });
     const idx = accounts.findIndex(function(a) { return a.email === account.email; });
     if (idx !== -1) {
       accounts[idx].token = result.token;
       accounts[idx].expiresAt = result.expiresAt;
-      chrome.storage.sync.set({ driveAccounts: accounts });
+      chrome.storage.local.set({ driveAccounts: accounts });
     }
     return result.token;
   } catch(e) {
@@ -49,9 +49,11 @@ async function getValidDriveToken(account) {
 }
 
 function loadDriveWidget() {
-  chrome.storage.sync.get(['driveAccounts', 'driveDefaultTab'], function(data) {
-    driveCurrentTab = data.driveDefaultTab || 'recent';
-    renderDriveWidget(data.driveAccounts || []);
+  chrome.storage.sync.get('driveDefaultTab', function(s) {
+    chrome.storage.local.get('driveAccounts', function(l) {
+      driveCurrentTab = s.driveDefaultTab || 'recent';
+      renderDriveWidget(l.driveAccounts || []);
+    });
   });
 }
 

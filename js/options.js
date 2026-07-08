@@ -360,13 +360,13 @@ function loadDrivePageSize() {
 }
 
 function loadDriveAccounts() {
-  chrome.storage.sync.get('driveAccounts', function(data) {
+  chrome.storage.local.get('driveAccounts', function(data) {
     renderDriveAccountList(data.driveAccounts || []);
   });
 }
 
 function saveDriveAccounts(accounts, cb) {
-  chrome.storage.sync.set({ driveAccounts: accounts }, function() {
+  chrome.storage.local.set({ driveAccounts: accounts }, function() {
     renderDriveAccountList(accounts);
     if (cb) cb();
   });
@@ -374,7 +374,7 @@ function saveDriveAccounts(accounts, cb) {
 
 async function handleAddDriveAccount() {
   var statusEl = document.getElementById('drive-add-status');
-  var stored = await new Promise(function(res) { chrome.storage.sync.get('driveAccounts', function(d) { res(d.driveAccounts || []); }); });
+  var stored = await new Promise(function(res) { chrome.storage.local.get('driveAccounts', function(d) { res(d.driveAccounts || []); }); });
   if (stored.length >= 1) {
     statusEl.textContent = '登録済みのアカウントを削除してから追加してください。';
     return;
@@ -483,13 +483,13 @@ function initCalendarSection() {
 // OAuth アカウント管理
 // =============================================
 function loadGcalAccounts() {
-  chrome.storage.sync.get('gcalAccounts', function(data) {
+  chrome.storage.local.get('gcalAccounts', function(data) {
     renderGcalAccountList(data.gcalAccounts || []);
   });
 }
 
 function saveGcalAccounts(accounts, cb) {
-  chrome.storage.sync.set({ gcalAccounts: accounts }, function() {
+  chrome.storage.local.set({ gcalAccounts: accounts }, function() {
     renderGcalAccountList(accounts);
     if (cb) cb();
   });
@@ -499,7 +499,7 @@ async function handleAddGcalAccount() {
   var statusEl = document.getElementById('gcal-add-status');
   var activeDot = document.querySelector('#new-cal-color-presets .cal-preset-dot.active');
   var color = activeDot ? activeDot.getAttribute('data-color') : '#6c63ff';
-  var stored = await new Promise(function(res) { chrome.storage.sync.get('gcalAccounts', function(d) { res(d.gcalAccounts || []); }); });
+  var stored = await new Promise(function(res) { chrome.storage.local.get('gcalAccounts', function(d) { res(d.gcalAccounts || []); }); });
   if (stored.length >= 2) {
     statusEl.textContent = '最大2アカウントまでです。既存アカウントを削除してから追加してください。';
     return;
@@ -576,7 +576,7 @@ function renderGcalAccountList(accounts) {
       var dot = e.target.closest('.cal-preset-dot');
       if (!dot) return;
       var email = this.getAttribute('data-email');
-      chrome.storage.sync.get('gcalAccounts', function(data) {
+      chrome.storage.local.get('gcalAccounts', function(data) {
         var accs = data.gcalAccounts || [];
         var acc = accs.find(function(a) { return a.email === email; });
         if (acc) {
@@ -590,7 +590,7 @@ function renderGcalAccountList(accounts) {
     btn.addEventListener('click', function() {
       var email = this.getAttribute('data-del-email');
       showModal('「' + email + '」を削除しますか？\nトークンも削除されます。', function() {
-        chrome.storage.sync.get('gcalAccounts', function(data) {
+        chrome.storage.local.get('gcalAccounts', function(data) {
           var accs = (data.gcalAccounts || []).filter(function(a) { return a.email !== email; });
           saveGcalAccounts(accs, function() { showStatus('アカウントを削除しました'); });
         });

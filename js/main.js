@@ -35,7 +35,9 @@ function refreshAfterSettings() {
 
 // レイアウト設定適用
 function applyLayoutSettings() {
-  chrome.storage.sync.get(['widgetSettings', 'columnWidths', 'columnCount', 'driveAccounts'], function(data) {
+  chrome.storage.local.get('driveAccounts', function(localData) {
+   chrome.storage.sync.get(['widgetSettings', 'columnWidths', 'columnCount'], function(data) {
+    data.driveAccounts = localData.driveAccounts;
     var mainContent = document.getElementById('main-content');
     if (!mainContent) return;
     var colCount = parseInt(data.columnCount) || 3;
@@ -98,6 +100,7 @@ function applyLayoutSettings() {
     if (visibleWidths.length > 0) {
       mainContent.style.gridTemplateColumns = visibleWidths.join(' ');
     }
+   });
   });
 }
 	

@@ -114,7 +114,7 @@ function launchOAuth(loginHint, interactive) {
 
 function getStoredAccounts() {
   return new Promise(function(resolve) {
-    chrome.storage.sync.get('gcalAccounts', function(data) {
+    chrome.storage.local.get('gcalAccounts', function(data) {
       resolve(data.gcalAccounts || []);
     });
   });
@@ -122,7 +122,7 @@ function getStoredAccounts() {
 
 function saveAccounts(accounts) {
   return new Promise(function(resolve) {
-    chrome.storage.sync.set({ gcalAccounts: accounts }, resolve);
+    chrome.storage.local.set({ gcalAccounts: accounts }, resolve);
   });
 }
 
